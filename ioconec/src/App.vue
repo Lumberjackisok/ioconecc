@@ -1,0 +1,39 @@
+<script setup lang="ts">
+import { RouterView } from 'vue-router'
+</script>
+
+<template>
+  
+
+  <RouterView />
+</template>
+
+<style >
+body {
+  padding: 0.5rem;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+  /**/
+}
+
+::-webkit-scrollbar-track {
+  background: rgb(239, 239, 239);
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #bfbfbf;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #333;
+}
+
+::-webkit-scrollbar-corner {
+  background: #179a16;
+}
+</style>
