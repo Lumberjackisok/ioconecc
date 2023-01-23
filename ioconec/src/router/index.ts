@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+
 import HomeView from '../views/HomeView.vue'
 
 const router = createRouter({
@@ -7,7 +8,22 @@ const router = createRouter({
     {
       path: '/',
       name: 'home',
-      component: HomeView
+      component: HomeView,
+      meta: {
+        title: 'Home',
+        login: true
+      },
+      children: [
+
+      ]
+    },
+    {
+      path: "/login",
+      name: "login",
+      component: () => import("../views/login/login.vue"),
+      meta: {
+       title: 'Login',
+      },
     },
     // {
     //   path: '/about',
@@ -15,6 +31,19 @@ const router = createRouter({
     //   component: () => import('../views/AboutView.vue')
     // }
   ]
+})
+
+router.beforeEach((to, from) => {
+  let token = window.sessionStorage.getItem('token');
+  if (to.meta.login && !token) {
+    return "/login?url=" + to.path;
+  }
+  //标题
+  if (to.meta.title) {
+    document.title = to.meta.title as string;
+  }
+
+  return true;
 })
 
 export default router
