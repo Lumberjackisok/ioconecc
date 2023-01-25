@@ -2,7 +2,7 @@ import axios, { AxiosError } from "axios";
 import type { AxiosInstance, AxiosRequestConfig, AxiosResponse } from "axios";
 
 const instance: AxiosInstance = axios.create({
-  baseURL: 'http'
+  baseURL: 'http://fuck me.....'
 })
 
 //请求拦截
