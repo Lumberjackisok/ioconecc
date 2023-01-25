@@ -8,7 +8,7 @@ const { generateToken, verifyToken } = require('../utils/token');
 //登录login
 module.exports.login = async(req, res, next) => {
     const { email, password } = req.body;
-
+    // console.log('email:', email); //可以正常打印
     //验证邮箱密码格式
     if (!email || !password) {
         return res.json({
@@ -101,3 +101,10 @@ module.exports.register = async(req, res, next) => {
         message: "User registration successful.|注册成功",
     })
 };
+
+module.exports.test = async(req, res, next) => {
+    return res.json({
+        message: "hello",
+        status: 20000
+    })
+}
