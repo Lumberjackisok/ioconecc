@@ -1,9 +1,16 @@
-import { createRouter, createWebHistory } from 'vue-router'
+import {
+  createRouter,
+
+  createWebHashHistory,
+
+} from "vue-router";
+
+import type { RouteLocationNormalized, RouteRecordRaw } from 'vue-router'
 
 import HomeView from '../views/HomeView.vue'
 
 const router = createRouter({
-  history: createWebHistory(import.meta.env.BASE_URL),
+  history: createWebHashHistory("/"),
   routes: [
     {
       path: '/',
@@ -13,18 +20,24 @@ const router = createRouter({
         title: 'Home',
         login: true
       },
-      children: [
+      // children: [
 
-      ]
+      // ]
     },
     {
       path: "/login",
       name: "login",
       component: () => import("../views/login/login.vue"),
       meta: {
-       title: 'Login',
+        title: 'Login',
+
       },
     },
+    {
+      path: "/test",
+      name: "test",
+      component: () => import("../views/test/test.vue"),
+    }
     // {
     //   path: '/about',
     //   name: 'about',
@@ -33,8 +46,9 @@ const router = createRouter({
   ]
 })
 
-router.beforeEach((to, from) => {
-  let token = window.sessionStorage.getItem('token');
+router.beforeEach((to: RouteLocationNormalized, from: RouteLocationNormalized) => {
+  let token = sessionStorage.getItem('token');
+  // let token = uerStore.token;
   if (to.meta.login && !token) {
     return "/login?url=" + to.path;
   }

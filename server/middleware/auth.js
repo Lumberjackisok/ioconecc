@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const { JWT_SECRET } = require('../config');
+const { verifyToken } = require('../utils/token');
 
 /**
  * 这个中间件函数主要是用来验证用户身份，

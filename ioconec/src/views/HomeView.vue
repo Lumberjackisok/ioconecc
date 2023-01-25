@@ -4,8 +4,18 @@ export default {
 }
 </script>
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue';
+import { useUserStore } from '@/stores/modules/user';
+const userStore = useUserStore();
+onMounted(() => {
+  console.log('in home page,token:', userStore.token);
 
+  let token = sessionStorage.getItem('token') == null ? '' : JSON.parse(sessionStorage.getItem('token')!);
+  console.log('token::::', token.token);
+
+
+
+})
 </script>
 
 <template>
