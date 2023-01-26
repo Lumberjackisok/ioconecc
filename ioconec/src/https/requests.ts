@@ -2,7 +2,7 @@ import axios, { AxiosError } from "axios";
 import type { AxiosInstance, AxiosRequestConfig, AxiosResponse } from "axios";
 
 const instance: AxiosInstance = axios.create({
-  baseURL: 'http://192.168.0.114:8000'
+  baseURL: 'http://i am idiot'
 })
 
 //请求拦截
