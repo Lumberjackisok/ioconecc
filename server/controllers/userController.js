@@ -5,6 +5,7 @@ const { generateToken, verifyToken } = require('../utils/token');
 
 
 
+
 //登录login
 module.exports.login = async(req, res, next) => {
     const { email, password } = req.body;
@@ -52,7 +53,7 @@ module.exports.login = async(req, res, next) => {
 
 //注册register
 module.exports.register = async(req, res, next) => {
-    const { email, password, username } = req.body;
+    const { email, username, password } = req.body;
 
 
     if (!username || !password) {
@@ -99,10 +100,13 @@ module.exports.register = async(req, res, next) => {
     await user.save();
     res.json({
         message: "User registration successful.|注册成功",
+        status: 200
     })
 };
 
 module.exports.test = async(req, res, next) => {
+    const { uid } = req.headers.token;
+    console.log(uid);
     return res.json({
         message: "hello",
         status: 20000

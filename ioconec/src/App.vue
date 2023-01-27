@@ -9,9 +9,9 @@ import { RouterView } from 'vue-router'
 </template>
 
 <style >
-body {
+/* body {
   padding: 0.5rem;
-}
+} */
 
 ::-webkit-scrollbar {
   width: 10px;
