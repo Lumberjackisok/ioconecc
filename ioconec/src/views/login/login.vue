@@ -7,6 +7,8 @@ export default {
 import { ref, reactive } from 'vue';
 import { login, register } from '../../https/index';
 import { progressStart, progressEnd } from '../../utils/progress';
+import { languagesList } from '../../plugins/languagesList';
+
 
 //引入UserStore
 import { useUserStore } from '../../stores/modules/user';
@@ -22,6 +24,7 @@ const state: any = reactive({
   email: '',
   username: '',
   password: '',
+  language: 'Pick your native language',
   errorMsg: '',
   isLoginNow: true,
   isSigned: false
@@ -60,10 +63,11 @@ const toRegiser = () => {
 //点击注册
 const postRegister = async () => {
   try {
-    let datas: any = await register(state.email, state.username, state.password);
+    let datas: any = await register(state.email, state.username, state.password, state.language);
     if (datas.status == 200) {
       state.errorMsg = '';
       state.password = '';
+      state.language = '';
       progressStart();
       setTimeout(() => {
         state.isSigned = true;
@@ -209,6 +213,15 @@ const onGetStart = () => {
             <a href="#" className="label-text-alt link link-hover">Forgot password?</a>
           </label> -->
         </div>
+        <div className="form-control">
+          <label className="label">
+            <span className="label-text">Language</span>
+          </label>
+          <select v-model="state.language" className="select select-bordered  w-full max-w-xs">
+            <option v-for="item in languagesList" :key="item.language" :disabled="item.disabled" :value="item.language">{{ item.language }}</option>
+          </select>
+        </div>
+    
         <div className="form-control mt-6">
           <button className="btn btn-primary" @click="postRegister">Sign up</button>
         </div>

@@ -53,7 +53,7 @@ module.exports.login = async(req, res, next) => {
 
 //注册register
 module.exports.register = async(req, res, next) => {
-    const { email, username, password } = req.body;
+    const { email, username, password, language } = req.body;
 
 
     if (!username || !password) {
@@ -95,6 +95,7 @@ module.exports.register = async(req, res, next) => {
         username: username,
         email: email,
         password: password,
+        language: language,
         createTime: new Date()
     });
     await user.save();

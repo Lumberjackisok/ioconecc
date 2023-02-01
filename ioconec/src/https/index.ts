@@ -11,9 +11,9 @@ export const login = (email: any, password: any) => {
     }
   )
 };
-export const register = (email: string, username: string, password: string) => {
+export const register = (email: string, username: string, password: string, language: string) => {
   return instance.post('/register', {
-    email, username, password
+    email, username, password, language
   },
     {
       headers: {

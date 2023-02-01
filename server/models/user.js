@@ -7,7 +7,7 @@ const bcryptjs = require('bcryptjs');
 const userSchema = new mongoose.Schema({
     username: {
         type: String,
-        require: true,
+        required: true,
         unique: true,
         min: 3,
         max: 20
@@ -18,7 +18,7 @@ const userSchema = new mongoose.Schema({
     },
     password: {
         type: String,
-        require: true,
+        required: true,
         min: 6,
         max: 20,
         set: (val) => bcryptjs.hashSync(val, 10)
@@ -26,6 +26,10 @@ const userSchema = new mongoose.Schema({
     avatar: {
         type: String,
         default: ""
+    },
+    language: {
+        type: String,
+        default: "chinese"
     },
     createTime: {
         type: Number,

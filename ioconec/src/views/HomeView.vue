@@ -4,16 +4,36 @@ export default {
 }
 </script>
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue';
+import { ref, reactive, onMounted, inject } from 'vue';
+
 import { useUserStore } from '@/stores/modules/user';
+
+
+import io from 'socket.io-client';
+const token = window.sessionStorage.getItem('token') == null ? '' : window.sessionStorage.getItem('token')!;
+const socket = io('http://fuckme.com', {
+    autoConnect: false,
+    extraHeaders: {
+        "Access-Control-Allow-Origin": '*'
+    },
+    query: {
+        token: token
+    }
+});
+socket.connect();
+
+//发送消息给服务端
+socket.emit('testSocket', '前端发过来的', (data: any) => {
+    console.log('浏览器控制台打印:服务端回调函数传进来的实参:', data);
+});
+
+//实例化userStore
 const userStore = useUserStore();
+
 onMounted(() => {
     console.log('in home page,userInfo:', userStore.userInfo);
-
     let token = sessionStorage.getItem('token') == null ? '' : JSON.parse(sessionStorage.getItem('token')!);
     console.log('token::::', token.token);
-
-
 
 })
 </script>
@@ -29,7 +49,7 @@ onMounted(() => {
                         <img class="rounded-full w-full h-full object-cover" alt="ravisankarchinnam"
                              src="../assets/fire.ico"/>
                     </div>
-                    <p class="text-md font-bold hidden md:block group-hover:block">Ioconec</p>
+                    <p class="text-md font-bold hidden md:block group-hover:block">IOconec</p>
                     <a href="#" class="block rounded-full hover:bg-gray-700 bg-gray-800 w-10 h-10 p-2 hidden md:block group-hover:block">
                         <svg viewBox="0 0 24 24" class="w-full h-full fill-current">
                             <path
@@ -110,6 +130,7 @@ onMounted(() => {
                                     <p class="truncate">You sent a photo.</p>
                                 </div>
                                 <p class="ml-2 whitespace-no-wrap">1h</p>
+                                
                             </div>
                         </div>
                     </div>
