@@ -38,6 +38,7 @@ const postLogin = async () => {
     console.log('登录信息：', res);
     if (res.status == 200) {
       state.errorMsg = '';
+
       //调用pinia里的函数
       userStore.setToken(res.data.token);
       userStore.setUserInfo(res.data);
@@ -68,12 +69,13 @@ const postRegister = async () => {
       state.errorMsg = '';
       state.password = '';
       state.language = '';
+
       progressStart();
       setTimeout(() => {
         state.isSigned = true;
       }, 1000);
-
       progressEnd();
+
     } else {
       state.errorMsg = datas.message;
     }
@@ -119,7 +121,7 @@ const onGetStart = () => {
                                 <div class="lg:mt-0 lg:flex-shrink-0">
                                     <div class="mt-12 inline-flex rounded-md shadow">
                                         <button @click="onGetStart" type="button" class="py-4 px-6  bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500 focus:ring-offset-indigo-200 text-white w-full transition ease-in duration-200 text-center text-base font-semibold shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2  rounded-lg ">
-                                            Get started
+                                          I did not hit her
                                         </button>
                                     </div>
                                 </div>

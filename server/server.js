@@ -1,9 +1,11 @@
 const app = require("./app");
-const { port } = require('./config');
+const { port, JWT_SECRET } = require('./config');
+const { verifyToken } = require('./utils/token');
 
 
 //连接mongoDB
 const mongoose = require('mongoose');
+const { json } = require("express");
 mongoose.set('strictQuery', false); //解决控制台警告提示
 const connectDb = () => {
     mongoose.connect('mongodb://localhost:27017/ioconec', {
@@ -52,9 +54,21 @@ const io = require('socket.io')(httpServer, {
 //接收客户端的连接，并获取传过来的token
 io.use(async(socket, next) => {
     try {
-        console.log('query::::', socket.handshake.query.token);
+        //console.log('token::::', JSON.parse(socket.handshake.query.token)['token']);
         if (socket.handshake.query.token) {
-            next();
+            //取token
+            const token = JSON.parse(socket.handshake.query.token)['token'];
+
+            //验证token,拿到用户id
+            const payload = await verifyToken(token, JWT_SECRET);
+            if (payload.uid) {
+                console.log('socket.id:', socket.id);
+                console.log('token info:', payload); //{ uid: '63ca6dfd99ac36ac5e8af3b4', iat: 1675312721, exp: 1675917521 }
+                socket.userId = payload.uid;
+                next();
+            } else {
+                throw new Error('Token verification failed.|token验证失败');
+            }
         }
     } catch (err) {
         console.log(err);
@@ -63,8 +77,9 @@ io.use(async(socket, next) => {
 
 //连接到客户端的socket，并监听自定义事件
 io.on('connection', (socket) => {
-    socket.on('testSocket', (val, fn) => {
-        console.log('val=', val);
-        fn('您好');
+    console.log('socket.userId:', socket.userId);
+    socket.on('message', (val, fn) => {
+        console.log(val);
+        fn(socket.id);
     });
 });

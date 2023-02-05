@@ -4,17 +4,18 @@ import type { AxiosInstance, AxiosRequestConfig, AxiosResponse } from "axios";
 import { progressStart, progressEnd } from '../utils/progress';
 
 const instance: AxiosInstance = axios.create({
-  baseURL: 'http://fuckme.com',
+  baseURL: 'http://fuck.com'
 })
 
 //请求拦截
 instance.interceptors.request.use((config: AxiosRequestConfig): AxiosRequestConfig => {
   progressStart();
 
+  //如果有token就在请求头中设置token
   let token = sessionStorage.getItem('token') == null ? '' : JSON.parse(sessionStorage.getItem('token')!);
-  if (token) {
+  if (token.token) {
     // config.headers!["Authori-zation"] = `Bearer ${token}`;
-    config.headers!["Authorization"] = `Bearer ${token}`;
+    config.headers!["Authorization"] = `Bearer ${token.token}`;
   }
 
   return config

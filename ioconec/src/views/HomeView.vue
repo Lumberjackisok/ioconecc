@@ -5,13 +5,18 @@ export default {
 </script>
 <script setup lang="ts">
 import { ref, reactive, onMounted, inject } from 'vue';
-
+import { search } from '../https/index';
 import { useUserStore } from '@/stores/modules/user';
 
 
 import io from 'socket.io-client';
+
+//实例化userStore
+const userStore: any = useUserStore();
+
+//连接socket.io
 const token = window.sessionStorage.getItem('token') == null ? '' : window.sessionStorage.getItem('token')!;
-const socket = io('http://fuckme.com', {
+const socket = io('http://fuck.com', {
     autoConnect: false,
     extraHeaders: {
         "Access-Control-Allow-Origin": '*'
@@ -21,14 +26,34 @@ const socket = io('http://fuckme.com', {
     }
 });
 socket.connect();
+//连接socket.io
 
-//发送消息给服务端
-socket.emit('testSocket', '前端发过来的', (data: any) => {
-    console.log('浏览器控制台打印:服务端回调函数传进来的实参:', data);
-});
+const state: any = reactive({
+    searchContent: '',
+})
 
-//实例化userStore
-const userStore = useUserStore();
+//点击搜索
+const onSearch = async () => {
+    try {
+        let datas = await search(state.searchContent);
+        console.log('搜索：', datas);
+
+    } catch (e) {
+        console.log(e);
+
+    }
+}
+//点击搜索
+
+//点击发送消息
+const onSend = () => {
+    //发送消息给服务端
+    socket.emit('message', `客户端:${userStore.userInfo.email}`, (data: any) => {
+        console.log('浏览器控制台打印:服务端回调函数传进来的实参:', data);
+    });
+}
+//点击发送消息
+
 
 onMounted(() => {
     console.log('in home page,userInfo:', userStore.userInfo);
@@ -36,6 +61,7 @@ onMounted(() => {
     console.log('token::::', token.token);
 
 })
+
 </script>
 
 <template>
@@ -61,9 +87,9 @@ onMounted(() => {
                     <form onsubmit="">
                         <div class="relative">
                             <label>
-                                <input class="rounded-full py-2 pr-6 pl-10 w-full border border-gray-800 focus:border-gray-700 bg-gray-800 focus:bg-gray-900 focus:outline-none text-gray-200 focus:shadow-md transition duration-300 ease-in"
-                                       type="text" value="" placeholder="Search Messenger"/>
-                                <span class="absolute top-0 left-0 mt-2 ml-3 inline-block">
+                                <input v-model="state.searchContent" @keyup="onSearch" class="rounded-full py-2 pr-6 pl-10 w-full border border-gray-800 focus:border-gray-700 bg-gray-800 focus:bg-gray-900 focus:outline-none text-gray-200 focus:shadow-md transition duration-300 ease-in"
+                                       type="text"  placeholder="Search Messenger"/>
+                                <span  class="absolute top-0 left-0 mt-2 ml-3 inline-block">
                                     <svg viewBox="0 0 24 24" class="w-6 h-6">
                                         <path fill="#bbb"
                                               d="M16.32 14.9l5.39 5.4a1 1 0 0 1-1.42 1.4l-5.38-5.38a8 8 0 1 1 1.41-1.41zM10 16a6 6 0 1 0 0-12 6 6 0 0 0 0 12z"/>
@@ -524,7 +550,7 @@ C15.786,7.8,14.8,8.785,14.8,10s0.986,2.2,2.201,2.2S19.2,11.215,19.2,10S18.216,7.
                                 </button>
                             </label>
                         </div>
-                        <button type="button" class="flex flex-shrink-0 focus:outline-none mx-2 block text-blue-600 hover:text-blue-700 w-6 h-6">
+                        <button @click="onSend" type="button" class="flex flex-shrink-0 focus:outline-none mx-2 block text-blue-600 hover:text-blue-700 w-6 h-6">
                             <svg viewBox="0 0 20 20" class="w-full h-full fill-current">
                                 <path d="M11.0010436,0 C9.89589787,0 9.00000024,0.886706352 9.0000002,1.99810135 L9,8 L1.9973917,8 C0.894262725,8 0,8.88772964 0,10 L0,12 L2.29663334,18.1243554 C2.68509206,19.1602453 3.90195042,20 5.00853025,20 L12.9914698,20 C14.1007504,20 15,19.1125667 15,18.000385 L15,10 L12,3 L12,0 L11.0010436,0 L11.0010436,0 Z M17,10 L20,10 L20,20 L17,20 L17,10 L17,10 Z"/>
                             </svg>

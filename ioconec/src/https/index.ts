@@ -11,6 +11,7 @@ export const login = (email: any, password: any) => {
     }
   )
 };
+
 export const register = (email: string, username: string, password: string, language: string) => {
   return instance.post('/register', {
     email, username, password, language
@@ -20,5 +21,17 @@ export const register = (email: string, username: string, password: string, lang
         "Content-Type": "application/json;charset=UTF-8"
       }
     }
+  )
+};
+
+export const search = (username: string) => {
+  return instance.get('/search', {
+    params: {
+      username
+    },
+    headers: {
+      "Content-Type": "application/json;charset=UTF-8"
+    }
+  }
   )
 };
