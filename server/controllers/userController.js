@@ -2,6 +2,9 @@ const mongoose = require('mongoose');
 const User = require('../models/user');
 const bcryptjs = require('bcryptjs');
 const { generateToken } = require('../utils/token');
+const {
+    randomAvatar
+} = require('../utils/tinyTools');
 
 
 
@@ -24,6 +27,14 @@ module.exports.login = async(req, res, next) => {
             message: "email is not exist.|邮箱不存在"
         })
     }
+
+
+    //update login time
+    const updateLoginTime = await user.update({
+        $set: {
+            'lastLogin': 'Privacy'
+        }
+    });
 
     //bcryptjs.compare（）返回一个布尔值
     const ispwdValid = await bcryptjs.compare(password, user.password);
@@ -90,12 +101,17 @@ module.exports.register = async(req, res, next) => {
         })
     }
 
+    const avatar = randomAvatar();
+
+
+
     //写入数据库
     const user = new User({
         username: username,
         email: email,
         password: password,
         language: language,
+        avatar: avatar,
         createTime: new Date()
     });
     await user.save();
@@ -103,6 +119,9 @@ module.exports.register = async(req, res, next) => {
         message: "User registration successful.|注册成功",
         status: 200
     })
+
+
+
 };
 
 //查找
@@ -115,12 +134,31 @@ module.exports.search = async(req, res, next) => {
     //$regex: username模糊查询，$options: 'i'不区分大小写
     const user = await User.find({ username: { $regex: username, $options: 'i' } });
 
-    const users = user.map(item => {
+    const users = user.map(item => { //不展示密码
         const newItem = {...item._doc };
         newItem.password = undefined;
         newItem.__v = undefined;
         return newItem;
     });
+
+    // const update = await User.updateMany({ 'avatar': '' }, {
+    //     $set: {
+    //         'avatar': `${randomAvatar()}`
+    //     }
+    // });
+
+    // const update = await User.find({});
+    // update.forEach(async item => {
+    //     let avatar = randomAvatar();
+    //     await item.update({
+    //         $set: {
+    //             'avatar': avatar
+    //         }
+    //     })
+    // })
+
+
+
 
     return res.json({
         status: 200,

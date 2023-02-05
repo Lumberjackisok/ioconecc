@@ -23,6 +23,9 @@ const messageSchema = new Schema({
     content: { //消息内容
         type: String,
     },
+    traslatedContent: { //翻译消息内容
+        type: String,
+    },
     content_type: { //消息内容的类型，text,image
         type: String,
         default: 'text'

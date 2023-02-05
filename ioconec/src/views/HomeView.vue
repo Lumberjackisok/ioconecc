@@ -16,7 +16,7 @@ const userStore: any = useUserStore();
 
 //连接socket.io
 const token = window.sessionStorage.getItem('token') == null ? '' : window.sessionStorage.getItem('token')!;
-const socket = io('http://fuck.com', {
+const socket = io('http://', {
     autoConnect: false,
     extraHeaders: {
         "Access-Control-Allow-Origin": '*'
@@ -30,17 +30,19 @@ socket.connect();
 
 const state: any = reactive({
     searchContent: '',
+    searchList: [],
 })
 
 //点击搜索
 const onSearch = async () => {
     try {
-        let datas = await search(state.searchContent);
+        let datas: any = await search(state.searchContent);
         console.log('搜索：', datas);
-
+        if (datas.status == 200) {
+            state.searchList = datas.users;
+        }
     } catch (e) {
         console.log(e);
-
     }
 }
 //点击搜索
@@ -100,7 +102,7 @@ onMounted(() => {
                     </form>
                 </div>
                   <!-- 消息预览列表 -->
-                <div class="contacts p-2 flex-1 overflow-y-scroll">
+                <div v-if="state.searchContent == ''" class="contacts p-2 flex-1 overflow-y-scroll">
                   
                     <div class="flex justify-between items-center p-3 hover:bg-gray-800 rounded-lg relative">
                         <div class="w-16 h-16 relative flex flex-shrink-0">
@@ -162,6 +164,30 @@ onMounted(() => {
                     </div>
                 </div>
                   <!-- 消息预览列表 -->
+
+                  <!-- 搜索用户列表 -->
+                <div v-if="state.searchContent != ''" class="contacts p-2 flex-1 overflow-y-scroll">
+                    <div v-for="item in state.searchList" :key="item" class="flex justify-between items-center p-3 hover:bg-gray-800 rounded-lg relative">
+                        <div class="w-16 h-16 relative flex flex-shrink-0">
+                            <img class="shadow-md rounded-full w-full h-full object-cover"
+                                 :src="item.avatar"
+                                 alt=""
+                            />
+                        </div>
+                        <div class="flex-auto min-w-0 ml-4 mr-6 hidden md:block group-hover:block">
+                            <p>{{ item.username }}</p>
+                            <div class="flex items-center text-sm text-gray-600">
+                                <div class="min-w-0">
+                                    <p class="truncate">Last login:</p>
+                                </div>
+                                <p class="ml-2 whitespace-no-wrap">{{ item.lastLogin }}</p>
+                            </div>
+                        </div>
+                    </div>
+                  
+                </div>
+                  <!-- 搜索用户列表 -->
+
             </section>
             <section class="flex flex-col flex-auto border-l border-gray-800">
                 <div class="chat-header px-6 py-4 flex flex-row flex-none justify-between items-center shadow">

@@ -15,6 +15,9 @@ app.use(cors());
 //路由
 app.use(userRouter);
 
+//访问静态资源
+app.use(express.static('public'));
+
 //错误处理
 const errorHandlers = require('./handler/errorHandler');
 app.use(errorHandlers.notFound);

@@ -4,7 +4,7 @@ import type { AxiosInstance, AxiosRequestConfig, AxiosResponse } from "axios";
 import { progressStart, progressEnd } from '../utils/progress';
 
 const instance: AxiosInstance = axios.create({
-  baseURL: 'http://fuck.com'
+  baseURL: 'http://'
 })
 
 //请求拦截

@@ -35,6 +35,10 @@ const userSchema = new mongoose.Schema({
         type: Number,
         default: Math.round(new Date() / 1000),
         set: (val) => Math.round(new Date() / 1000)
+    },
+    lastLogin: {
+        type: String,
+        default: "Privacy"
     }
 })
 
