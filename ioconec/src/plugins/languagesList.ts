@@ -12,6 +12,10 @@ export const languagesList = [
     disabled: false
   },
   {
+    language: 'Japanese',
+    disabled: false
+  },
+  {
     language: 'French',
     disabled: false
   },
@@ -43,10 +47,10 @@ export const languagesList = [
     language: 'Russian',
     disabled: false
   },
- {
+  {
     language: 'Turkish',
     disabled: false
- },
+  },
   {
     language: 'Vietnamese',
     disabled: false

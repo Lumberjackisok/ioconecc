@@ -7,7 +7,7 @@ export default {
 import { ref, reactive, onMounted, inject } from 'vue';
 import { search } from '../https/index';
 import { useUserStore } from '@/stores/modules/user';
-import { serverBaseURL } from '@/config/index';
+import { baseURL } from '@/privateKeys/index';
 import io from 'socket.io-client';
 
 //实例化userStore
@@ -15,7 +15,7 @@ const userStore: any = useUserStore();
 
 //连接socket.io
 const token = window.sessionStorage.getItem('token') == null ? '' : window.sessionStorage.getItem('token')!;
-const socket = io(serverBaseURL, {
+const socket = io(baseURL, {
     autoConnect: false,
     extraHeaders: {
         "Access-Control-Allow-Origin": '*'

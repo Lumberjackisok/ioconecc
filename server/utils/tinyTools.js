@@ -1,4 +1,4 @@
-const { baseURL } = require('../config/index');
+const { baseURL } = require('../privateKeys/index.js');
 
 //random avatar 随机头像
 module.exports.randomAvatar = () => {
