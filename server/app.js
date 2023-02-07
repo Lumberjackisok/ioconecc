@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
-const userRouter = require('./routes/user')
+const userRouter = require('./routes/user');
+const messageRouter = require('./routes/message');
 const app = express();
 
 //解析客户端发送的json数据(req.body)，只能解析Content-Type:application/json的数据
@@ -14,6 +15,7 @@ app.use(cors());
 
 //路由
 app.use(userRouter);
+app.use(messageRouter);
 
 //访问静态资源
 app.use(express.static('public'));

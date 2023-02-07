@@ -1,6 +1,6 @@
 import axios, { AxiosError } from "axios";
 import type { AxiosInstance, AxiosRequestConfig, AxiosResponse } from "axios";
-import { baseURL } from '@/privateKeys/index';
+import { baseURL } from '../privateKeys/index';
 import { progressStart, progressEnd } from '../utils/progress';
 
 const instance: AxiosInstance = axios.create({

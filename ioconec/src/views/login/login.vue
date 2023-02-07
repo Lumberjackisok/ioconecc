@@ -7,7 +7,7 @@ export default {
 import { ref, reactive } from 'vue';
 import { login, register } from '../../https/index';
 import { progressStart, progressEnd } from '../../utils/progress';
-import { languagesList } from '../../plugins/languagesList';
+import { languagesList } from '../../config/index';
 
 
 //引入UserStore

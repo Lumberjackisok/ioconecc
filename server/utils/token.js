@@ -4,11 +4,12 @@ const { JWT_SECRET } = require('../config');
 /**
  * jwt.sign()生成token
  * @param {*} uid 
+ * @param {*} language
  * @param {*} secret 
  * @param {*} expiresIn token过期时间："2 days"，"10h"，"7d"
  */
-module.exports.generateToken = (uid, secret, expiresIn = '7d') => {
-    return jwt.sign({ uid }, secret || JWT_SECRET, { expiresIn });
+module.exports.generateToken = (uid, language, secret, expiresIn = '7d') => {
+    return jwt.sign({ uid, language }, secret || JWT_SECRET, { expiresIn });
 };
 
 /**

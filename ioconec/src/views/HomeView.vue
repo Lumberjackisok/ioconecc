@@ -5,9 +5,9 @@ export default {
 </script>
 <script setup lang="ts">
 import { ref, reactive, onMounted, inject } from 'vue';
-import { search } from '../https/index';
+import { search, sendMessage } from '../https/index';
 import { useUserStore } from '@/stores/modules/user';
-import { baseURL } from '@/privateKeys/index';
+import { baseURL } from '../privateKeys/index';
 import io from 'socket.io-client';
 
 //实例化userStore
@@ -47,11 +47,14 @@ const onSearch = async () => {
 //点击搜索
 
 //点击发送消息
-const onSend = () => {
+const onSend = async () => {
+    let datas = await sendMessage();
+    console.log(datas);
+
     //发送消息给服务端
-    socket.emit('message', `客户端:${userStore.userInfo.email}`, (data: any) => {
-        console.log('浏览器控制台打印:服务端回调函数传进来的实参:', data);
-    });
+    // socket.emit('message', `客户端:${userStore.userInfo.email}`, (data: any) => {
+    //     console.log('浏览器控制台打印:服务端回调函数传进来的实参:', data);
+    // });
 }
 //点击发送消息
 

@@ -45,8 +45,9 @@ module.exports.login = async(req, res, next) => {
         });
     }
 
+
     //登录成功发送token
-    const token = generateToken(user._id.toHexString());
+    const token = generateToken(user._id.toHexString(), user.language);
     const data = {
         token,
         ...Object.assign(user._doc),
@@ -126,8 +127,7 @@ module.exports.register = async(req, res, next) => {
 //查找
 module.exports.search = async(req, res, next) => {
     const { username } = req.query;
-    // const token = req.headers['authorization'].replace('Bearer ', '');
-    // console.log(token);
+
 
     //$regex: username模糊查询，$options: 'i'不区分大小写
     const user = await User.find({ username: { $regex: username, $options: 'i' } });
