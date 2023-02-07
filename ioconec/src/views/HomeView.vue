@@ -7,8 +7,7 @@ export default {
 import { ref, reactive, onMounted, inject } from 'vue';
 import { search } from '../https/index';
 import { useUserStore } from '@/stores/modules/user';
-
-
+import { serverBaseURL } from '@/config/index';
 import io from 'socket.io-client';
 
 //实例化userStore
@@ -16,7 +15,7 @@ const userStore: any = useUserStore();
 
 //连接socket.io
 const token = window.sessionStorage.getItem('token') == null ? '' : window.sessionStorage.getItem('token')!;
-const socket = io('http://', {
+const socket = io(serverBaseURL, {
     autoConnect: false,
     extraHeaders: {
         "Access-Control-Allow-Origin": '*'
@@ -85,6 +84,8 @@ onMounted(() => {
                         </svg>
                     </a>
                 </div>
+
+                <!-- 搜索框 -->
                 <div class="search-box p-4 flex-none">
                     <form onsubmit="">
                         <div class="relative">
@@ -101,6 +102,8 @@ onMounted(() => {
                         </div>
                     </form>
                 </div>
+                <!-- 搜索框 -->
+
                   <!-- 消息预览列表 -->
                 <div v-if="state.searchContent == ''" class="contacts p-2 flex-1 overflow-y-scroll">
                   
@@ -187,7 +190,7 @@ onMounted(() => {
                   
                 </div>
                   <!-- 搜索用户列表 -->
-
+                  
             </section>
             <section class="flex flex-col flex-auto border-l border-gray-800">
                 <div class="chat-header px-6 py-4 flex flex-row flex-none justify-between items-center shadow">

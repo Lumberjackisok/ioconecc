@@ -1,11 +1,11 @@
 import axios, { AxiosError } from "axios";
 import type { AxiosInstance, AxiosRequestConfig, AxiosResponse } from "axios";
-
+import { serverBaseURL } from '@/config/index';
 import { progressStart, progressEnd } from '../utils/progress';
 
 const instance: AxiosInstance = axios.create({
-  baseURL: 'http://'
-})
+  baseURL: serverBaseURL
+});
 
 //请求拦截
 instance.interceptors.request.use((config: AxiosRequestConfig): AxiosRequestConfig => {
@@ -18,22 +18,22 @@ instance.interceptors.request.use((config: AxiosRequestConfig): AxiosRequestConf
     config.headers!["Authorization"] = `Bearer ${token.token}`;
   }
 
-  return config
+  return config;
 }, (err: AxiosError) => {
   progressEnd();
 
-  Promise.reject(err)
-})
+  Promise.reject(err);
+});
 
 //响应拦截
 instance.interceptors.response.use((response: AxiosResponse) => {
   progressEnd();
 
-  return response.data ? response.data : response
+  return response.data ? response.data : response;
 }, (err: AxiosError) => {
   progressEnd();
 
-  Promise.reject(err)
-})
+  Promise.reject(err);
+});
 
-export default instance
+export default instance;

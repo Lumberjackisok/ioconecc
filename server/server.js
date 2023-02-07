@@ -7,6 +7,10 @@ const { verifyToken } = require('./utils/token');
 const mongoose = require('mongoose');
 const { json } = require("express");
 mongoose.set('strictQuery', false); //解决控制台警告提示
+
+//全局保存uid和socket.id的映射
+const onLineUserMap = new Map();
+
 const connectDb = () => {
     mongoose.connect('mongodb://localhost:27017/ioconec', {
         useNewUrlParser: true,
@@ -52,7 +56,7 @@ const io = require('socket.io')(httpServer, {
 });
 
 //接收客户端的连接，并获取传过来的token
-io.use(async(socket, next) => {
+io.use(async (socket, next) => {
     try {
         //console.log('token::::', JSON.parse(socket.handshake.query.token)['token']);
         if (socket.handshake.query.token) {
@@ -62,9 +66,14 @@ io.use(async(socket, next) => {
             //验证token,拿到用户id
             const payload = await verifyToken(token, JWT_SECRET);
             if (payload.uid) {
-                console.log('socket.id:', socket.id);
-                console.log('token info:', payload); //{ uid: '63ca6dfd99ac36ac5e8af3b4', iat: 1675312721, exp: 1675917521 }
-                socket.userId = payload.uid;
+                // console.log('socket.id:', socket.id);
+
+                //将数据库的用户id与客户端连接服务器后服务器分配给客户端的socket.id映射
+
+                onLineUserMap.set(socket.id, payload.uid);
+
+                // console.log('token info:', payload); //{ uid: '63ca6dfd99ac36ac5e8af3b4', iat: 1675312721, exp: 1675917521 }
+                socket.uid = payload.uid;
                 next();
             } else {
                 throw new Error('Token verification failed.|token验证失败');
@@ -77,9 +86,10 @@ io.use(async(socket, next) => {
 
 //连接到客户端的socket，并监听自定义事件
 io.on('connection', (socket) => {
-    console.log('socket.userId:', socket.userId);
+    console.log('socket.userId:', socket.uid);
+    console.log('socket.Id:', socket.id);
     socket.on('message', (val, fn) => {
-        console.log(val);
+        // console.log(val);
         fn(socket.id);
     });
 });

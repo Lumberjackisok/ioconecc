@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+// const mongoose = require('mongoose');
 const User = require('../models/user');
 const bcryptjs = require('bcryptjs');
 const { generateToken } = require('../utils/token');
@@ -121,7 +121,6 @@ module.exports.register = async(req, res, next) => {
     })
 
 
-
 };
 
 //查找
@@ -129,7 +128,6 @@ module.exports.search = async(req, res, next) => {
     const { username } = req.query;
     // const token = req.headers['authorization'].replace('Bearer ', '');
     // console.log(token);
-    console.log('搜索：', username);
 
     //$regex: username模糊查询，$options: 'i'不区分大小写
     const user = await User.find({ username: { $regex: username, $options: 'i' } });
