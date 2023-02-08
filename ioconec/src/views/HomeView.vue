@@ -30,7 +30,15 @@ socket.connect();
 const state: any = reactive({
     searchContent: '',
     searchList: [],
-})
+});
+
+//发送消息数据
+const sends: any = reactive({
+    sender: '',
+    receiver: '',
+    content_type: 1,
+    content: ''
+});
 
 //点击搜索
 const onSearch = async () => {
@@ -48,13 +56,10 @@ const onSearch = async () => {
 
 //点击发送消息
 const onSend = async () => {
-    let datas = await sendMessage();
-    console.log(datas);
-
     //发送消息给服务端
-    // socket.emit('message', `客户端:${userStore.userInfo.email}`, (data: any) => {
-    //     console.log('浏览器控制台打印:服务端回调函数传进来的实参:', data);
-    // });
+    socket.emit('message', `客户端:${userStore.userInfo.email}`, (data: any) => {
+        console.log('浏览器控制台打印:服务端回调函数传进来的实参:', data);
+    });
 }
 //点击发送消息
 

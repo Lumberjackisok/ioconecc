@@ -4,7 +4,7 @@ const { verifyToken } = require('../utils/token');
 const { JWT_SECRET } = require('../config/index');
 
 module.exports.sendMessage = async (req, res, next) => {
-    const { sender, receiver, conten_type, content } = req.body;
+    const { sender, receiver, content_type, content } = req.body;
 
     const token = req.headers['authorization'].replace('Bearer ', '');
 

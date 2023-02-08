@@ -6,7 +6,7 @@ const { openAIKeys } = require('../privateKeys/index');
 //API of openai openai的api
 module.exports.openAITranslate = async (text, language) => {
   const configuration = new Configuration({
-    apiKey: openAIKeys
+    apiKey: openAIKeys //apiKey的K是大写
   });
 
   const openai = new OpenAIApi(configuration);

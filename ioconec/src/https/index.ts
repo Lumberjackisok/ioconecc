@@ -36,8 +36,14 @@ export const search = (username: string) => {
   )
 };
 
-export const sendMessage = (sender = 'sender', receiver = 'receiver', conten_type = 1, content = 'Ecuador is like a pocket Earth. The cinematic descent from Quito’s chilly, breath-defying altitudes through the rolling clouds of Cuenca, and into Guayaquil’s humid tropical bay is nothing short of surreal, but also an excellent barometer for studying the country’s rich multiculturality.') => {
-  return instance.post('/sendMessage', { sender, receiver, conten_type, content },
+/**
+ * sender:发送者uid
+ * receiver:接收者uid
+ * content_type:1:文本，2:图片，3:语音，4:视频，5:文件
+ * 
+*/
+export const sendMessage = (sender: string, receiver: string, content_type:number, content: string) => {
+  return instance.post('/sendMessage', { sender, receiver, content_type, content },
     {
       headers: {
         "Content-Type": "application/json;charset=UTF-8"
