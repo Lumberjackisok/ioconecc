@@ -42,8 +42,8 @@ export const search = (username: string) => {
  * content_type:1:文本，2:图片，3:语音，4:视频，5:文件
  * 
 */
-export const sendMessage = (sender: string, receiver: string, content_type:number, content: string) => {
-  return instance.post('/sendMessage', { sender, receiver, content_type, content },
+export const sendMessage = (sender: string, receiver: string, contentType: number, content: string) => {
+  return instance.post('/sendMessage', { sender, receiver, contentType, content },
     {
       headers: {
         "Content-Type": "application/json;charset=UTF-8"

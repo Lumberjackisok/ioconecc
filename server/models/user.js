@@ -36,6 +36,14 @@ const userSchema = new mongoose.Schema({
         default: Math.round(new Date() / 1000),
         set: (val) => Math.round(new Date() / 1000)
     },
+    isOnline: {
+        type: Number,
+        default: 0
+    },
+    socketId: {
+        type: String,
+        default: ''
+    },
     lastLogin: {
         type: String,
         default: "Privacy"

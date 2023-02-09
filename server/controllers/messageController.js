@@ -3,8 +3,8 @@ const { openAITranslate } = require('../utils/translateApis');
 const { verifyToken } = require('../utils/token');
 const { JWT_SECRET } = require('../config/index');
 
-module.exports.sendMessage = async (req, res, next) => {
-    const { sender, receiver, content_type, content } = req.body;
+module.exports.sendMessage = async(req, res, next) => {
+    const { sender, receiver, contentType, content } = req.body;
 
     const token = req.headers['authorization'].replace('Bearer ', '');
 

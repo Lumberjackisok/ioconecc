@@ -1,6 +1,6 @@
 const { Schema, model } = require('mongoose');
 const NotificationSchema = new Schema({
-    type: { //类型，已读，未读
+    type: { //类型:已读，未读
         type: String,
         required: true
     },
