@@ -51,3 +51,19 @@ export const sendMessage = (sender: string, receiver: string, contentType: numbe
     }
   )
 }
+
+/**
+ * 获取聊天历史记录
+ * /mssageHistory
+ * get
+ * sender string
+ * receiver:string
+*/
+export const getHistory = (receiver: string) => {
+  return instance.get('/mssageHistory', {
+    params: {  receiver },
+    headers: {
+      "Content-Type": "application/json;charset=UTF-8"
+    }
+  });
+};

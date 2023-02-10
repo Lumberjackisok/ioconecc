@@ -1,10 +1,13 @@
 import { defineStore } from 'pinia'
 
-
+//定义接口
 interface _user {
   avatar: string,
   createTime: number,
   email: string,
+  isOnline: number,
+  language: string,
+  lastLogin: string,
   token: string,
   username: string,
   _id: string,
@@ -17,7 +20,7 @@ export const useUserStore = defineStore('userInfo', {
       token: ""
     }
   },
-  // 相当于 vue 中的 computed 计算属性
+  // 相当于 vue 中的 computed 计算属性，可以用来处理购物车数量
   getters: {},
 
   // 相当于 vue 中的 methods 方法

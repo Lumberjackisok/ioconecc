@@ -8,6 +8,6 @@ router.post("/register", catchErr(register));
 router.get("/search", catchErr(search));
 
 
-router.get('/test', auth, catchErr(test));
+router.get('/test', catchErr(test));
 
 module.exports = router;

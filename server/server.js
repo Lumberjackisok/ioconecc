@@ -1,7 +1,9 @@
 const app = require("./app");
 const { port, JWT_SECRET } = require('./config');
 const { verifyToken } = require('./utils/token');
+const { openAITranslate } = require('./utils/translateApis');
 const User = require('./models/user');
+const Message = require('./models/message');
 
 
 //连接mongoDB
@@ -96,11 +98,47 @@ io.on('connection', async(socket) => {
     // console.log('用户语言:', socket.language);
 
 
+    //监听客户端的message发消息事件
     socket.on('message', async(val, fn) => {
-        console.log('这啥啊', val);
+        console.log('message数据:', val.datas);
         // console.log('在线吗', !!socket.connected[socket.uid]);
-        const receiverSocketId = await User.findById({ _id: val.datas.receiver });
-        console.log('receiverSocketId', receiverSocketId);
-        fn(socket.id);
+
+        //从数据库拿接收者的信息，获取到接收者的socket.id
+        const receiverDatas = await User.findById({ _id: val.datas.receiver });
+        console.log('receiverDatas接收者数据:', receiverDatas);
+
+        //使用openai的davinci-003进行翻译
+        const traslatedContent = await openAITranslate(val.datas.content, val.datas.receiverLanguage);
+        console.log('原文：', val.datas.content);
+        console.log('翻译文本：', traslatedContent);
+
+        //写入数据库
+        const message = new Message({
+            sender: val.datas.sender,
+            receiver: val.datas.receiver,
+            contentType: val.datas.contentType,
+            content: val.datas.content,
+            traslatedContent: traslatedContent,
+            isRead: 0,
+            updateAt: new Date()
+        });
+
+        try {
+            await message.save();
+            // return message;
+        } catch (err) {
+            console.error(err);
+        }
+
+        fn(traslatedContent);
+    });
+
+    //监听客户端的disconnect事件，断开连接后更新数据库的isOnline状态为0
+    socket.on('disconnect', async() => {
+        const res = await User.updateOne({ _id: socket.uid }, {
+            $set: {
+                isOnline: 0
+            }
+        })
     });
 });

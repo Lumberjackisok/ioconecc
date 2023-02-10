@@ -3,7 +3,10 @@ const { model, Schema } = require('mongoose');
 const groupSchema = new Schema({
     name: {
         type: String,
-        required: true
+        required: true,
+        unique: true,
+        min: 3,
+        max: 20
     },
     members: [{
         type: Schema.Types.ObjectId,

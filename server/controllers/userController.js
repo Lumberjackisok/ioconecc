@@ -103,6 +103,7 @@ module.exports.register = async(req, res, next) => {
         })
     }
 
+    //随机生成头像
     const avatar = randomAvatar();
 
 
@@ -156,9 +157,6 @@ module.exports.search = async(req, res, next) => {
     //     })
     // })
 
-
-
-
     return res.json({
         status: 200,
         message: "User search successful.|搜索成功",
@@ -171,6 +169,7 @@ module.exports.test = async(req, res, next) => {
     console.log(uid);
     return res.json({
         message: "hello",
+        datas: uid,
         status: 20000
     })
 }
