@@ -28,9 +28,9 @@ const socket = io(baseURL, {
 socket.connect();
 //连接socket.io
 
-socket.on('updateUserInfo', (userInfo: any) => {
-    userStore.setUserInfo(userInfo);
-});
+
+
+console.log('in home page,userInfo:', userStore.userInfo);
 
 const state: any = reactive({
     searchContent: '',
@@ -99,7 +99,7 @@ const onSend = async () => {
 
 
 onMounted(() => {
-    console.log('in home page,userInfo:', userStore.userInfo);
+
     let token = sessionStorage.getItem('token') == null ? '' : JSON.parse(sessionStorage.getItem('token')!);
     console.log('token::::', token.token);
 

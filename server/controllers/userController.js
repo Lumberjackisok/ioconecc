@@ -29,12 +29,12 @@ module.exports.login = async(req, res, next) => {
     }
 
 
-    //update login time
-    const updateLoginTime = await user.update({
-        $set: {
-            'lastLogin': 'Privacy'
-        }
-    });
+    // update login time
+    // const updateLoginTime = await user.updateMany({},{
+    //     $set: {
+    //         'lastLogin': 'Privacy'
+    //     }
+    // });
 
     //bcryptjs.compare（）返回一个布尔值
     const ispwdValid = await bcryptjs.compare(password, user.password);
@@ -52,7 +52,8 @@ module.exports.login = async(req, res, next) => {
         token,
         ...Object.assign(user._doc),
         password: undefined,
-        __v: undefined
+        __v: undefined,
+        socketId: undefined
     }
 
     return res.json({
