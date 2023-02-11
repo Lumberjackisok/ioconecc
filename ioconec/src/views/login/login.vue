@@ -4,7 +4,7 @@ export default {
 }
 </script>
 <script setup lang="ts">
-import { ref, reactive } from 'vue';
+import { ref, reactive, onMounted } from 'vue';
 import { login, register } from '../../https/index';
 import { progressStart, progressEnd } from '../../utils/progress';
 import { languagesList } from '../../config/index';
@@ -93,6 +93,10 @@ const onGetStart = () => {
   }, 1200);
   progressEnd();
 }
+
+onMounted(() => {
+  
+});
 </script>
 
 <template>
@@ -177,7 +181,7 @@ const onGetStart = () => {
           </label>
         </div>
         <div className="form-control mt-6">
-          <button className="btn btn-primary" @click="postLogin">Login</button>
+          <button className="btn btn-primary"  @click="postLogin">Login</button>
         </div>
         <div class="flex items-center justify-center mt-6">
                 <a @click.prevent="toRegiser" target="_blank" class="inline-flex items-center text-xs font-thin text-center text-gray-500 hover:text-gray-700 dark:text-gray-100 dark:hover:text-white cursor-pointer">

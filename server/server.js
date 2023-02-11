@@ -4,6 +4,7 @@ const { verifyToken } = require('./utils/token');
 const { openAITranslate } = require('./utils/translateApis');
 const User = require('./models/user');
 const Message = require('./models/message');
+const Group = require('./models/group');
 
 
 //连接mongoDB
@@ -59,66 +60,66 @@ const io = require('socket.io')(httpServer, {
 });
 
 //接收客户端的连接，并获取传过来的token
-io.use(async(socket, next) => {
+io.use(async (socket, next) => {
     try {
-        //console.log('token::::', JSON.parse(socket.handshake.query.token)['token']);
         if (socket.handshake.query.token) {
-            //取token
             const token = JSON.parse(socket.handshake.query.token)['token'];
 
             //验证token,拿到用户id和母语
             const payload = await verifyToken(token, JWT_SECRET);
-            if (payload.uid) {
-                //每次重连socket.id都会变，更新数据库里的socketId
-                const res = await User.updateOne({ _id: payload.uid }, {
-                    $set: {
-                        isOnline: 1,
-                        socketId: socket.id
-                    }
-                });
-                console.log('socket.Id:', socket.id);
-
-
-                //把uid保存到socket里面，方便用return !!io.sockets.connected[userId]判断在线用户
-                socket.uid = payload.uid;
-                socket.language = payload.language;
-                next();
-            } else {
-                throw new Error('Token verification failed.|token验证失败');
-            }
+            //把uid保存到socket里面，方便用return !!io.sockets.connected[userId]判断在线用户
+            socket.uid = payload.uid;
+            socket.language = payload.language;
+            console.log(payload);
+            next();
         }
-    } catch (err) {
-        console.log(err);
-    }
+    } catch (err) { console.log(err); }
 });
 
 //连接到客户端的socket，并监听自定义事件
-io.on('connection', async(socket) => {
-    // console.log('用户id:', socket.uid);
-    // console.log('用户语言:', socket.language);
-
+io.on('connection', async (socket) => {
+    console.log('连接到客户端的socket');
+    try {
+        //每次重连socket.id都会变，更新数据库里的socketId
+        const res = await User.updateOne({ _id: socket.uid }, {
+            $set: {
+                isOnline: 1,
+                socketId: socket.id
+            }
+        });
+        console.log('socket.Id:', socket.id);
+    } catch (err) {
+        console.log(err);
+    }
 
     //监听客户端的message发消息事件
-    socket.on('message', async(val, fn) => {
-        console.log('message数据:', val.datas);
+    socket.on('message', async (val, fn) => {
+        console.log('message数据:', val.sendData);
         // console.log('在线吗', !!socket.connected[socket.uid]);
+        const { sendData } = val;
 
         //从数据库拿接收者的信息，获取到接收者的socket.id
-        const receiverDatas = await User.findById({ _id: val.datas.receiver });
+        const receiverDatas = await User.findById({ _id: sendData.receiver });
         console.log('receiverDatas接收者数据:', receiverDatas);
+        console.log('receiverDatas接收者数据socketId:', receiverDatas.socketId);
 
         //使用openai的davinci-003进行翻译
-        const traslatedContent = await openAITranslate(val.datas.content, val.datas.receiverLanguage);
-        console.log('原文：', val.datas.content);
+        const traslatedContent = await openAITranslate(sendData.content, sendData.receiverLanguage);
+        console.log('原文：', sendData.content);
         console.log('翻译文本：', traslatedContent);
+
+        //关联单聊群聊，通过group name获到group id，再利用id关联到group,单聊group的名称默认id+'空格'+id
+        const groupName = sendData.sender + ' ' + sendData.receiver;
+        const group = await Group.findOne({ name: groupName });
 
         //写入数据库
         const message = new Message({
-            sender: val.datas.sender,
-            receiver: val.datas.receiver,
-            contentType: val.datas.contentType,
-            content: val.datas.content,
+            sender: sendData.sender,
+            receiver: sendData.receiver,
+            contentType: sendData.contentType,
+            content: sendData.content,
             traslatedContent: traslatedContent,
+            group: group._id,
             isRead: 0,
             updateAt: new Date()
         });
@@ -126,18 +127,37 @@ io.on('connection', async(socket) => {
         try {
             await message.save();
             // return message;
+            // 发送成功后再查找数据库把最新的聊天记录返回过去
+            const messages = await Message.find({
+                $or: [{
+                    sender: sendData.sender,
+                    receiver: sendData.receiver
+                }, {
+                    sender: sendData.receiver,
+                    receiver: sendData.sender
+                }]
+            });
+            fn(messages);
+            if (receiverDatas.socketId != '') {
+                socket.to(receiverDatas.socketId).emit('message', {
+                    message: 'go get ppdate',
+                    data: messages
+                })
+            }
+
         } catch (err) {
             console.error(err);
         }
 
-        fn(traslatedContent);
+
     });
 
-    //监听客户端的disconnect事件，断开连接后更新数据库的isOnline状态为0
-    socket.on('disconnect', async() => {
+    //监听客户端的disconnect事件，断开连接后更新数据库的isOnline状态为0,socketId为空字符串
+    socket.on('disconnect', async () => {
         const res = await User.updateOne({ _id: socket.uid }, {
             $set: {
-                isOnline: 0
+                isOnline: 0,
+                socketId: ""
             }
         })
     });

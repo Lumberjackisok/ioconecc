@@ -22,7 +22,7 @@ const messageSchema = new Schema({
         type: String,
     },
     group: { //群组
-        type: Schema.Types.ObjectId,
+        type: Schema.Types.ObjectId, //群组id
         ref: 'Group',
     },
     isRead: { //是否已读

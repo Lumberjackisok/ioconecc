@@ -4,9 +4,10 @@ const groupSchema = new Schema({
     name: {
         type: String,
         required: true,
-        unique: true,
-        min: 3,
-        max: 20
+    },
+    isOne2One: { //是否为单聊，1：单聊 ，0：群聊
+        type: Number,
+        default: 1,
     },
     members: [{
         type: Schema.Types.ObjectId,

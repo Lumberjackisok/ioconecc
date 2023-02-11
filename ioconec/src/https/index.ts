@@ -61,9 +61,44 @@ export const sendMessage = (sender: string, receiver: string, contentType: numbe
 */
 export const getHistory = (receiver: string) => {
   return instance.get('/mssageHistory', {
-    params: {  receiver },
+    params: { receiver },
     headers: {
       "Content-Type": "application/json;charset=UTF-8"
     }
   });
+};
+
+/**
+ * 获取消息预览列表
+ * /notifyList
+ * get
+*/
+export const notifyList = () => {
+  return instance.get('/notifyList', {
+    headers: {
+      "Content-Type": "application/json;charset=UTF-8"
+    }
+  })
+};
+
+/**
+ * 创建聊天室，如果为单聊聊天室，聊天室名称默认为对应两个用户的id的字符串相拼接
+ * post
+ * /createGroup
+ * 
+ * name:string 群聊名称
+ * isOne2One:number 是否为单聊聊天室，1：单聊聊天室，0：群聊聊天室
+*/
+export const createGroup = (name: string, isOne2One: number) => {
+  return instance.post('/createGroup', {
+    name, 
+    isOne2One
+  },
+    {
+      headers: {
+        "Content-Type": "application/json;charset=UTF-8"
+      }
+    }
+
+  )
 };

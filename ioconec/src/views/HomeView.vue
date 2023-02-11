@@ -5,7 +5,7 @@ export default {
 </script>
 <script setup lang="ts">
 import { ref, reactive, onMounted, inject } from 'vue';
-import { search, getHistory } from '../https/index';
+import { search, getHistory, notifyList, createGroup } from '../https/index';
 import { useUserStore } from '@/stores/modules/user';
 import { baseURL } from '../privateKeys/index';
 import io from 'socket.io-client';
@@ -28,6 +28,21 @@ const socket = io(baseURL, {
 socket.connect();
 //连接socket.io
 
+//监听
+socket.on('connect', () => {
+    console.log('连接成功');
+});
+
+socket.on('disconnect', () => {
+    console.log('连接断开');
+});
+
+socket.on('message', (data: any) => {
+    console.log('收到消息', data);
+    if (data.message == 'go get ppdate') {
+        myGetHistory();
+    }
+});
 
 
 console.log('in home page,userInfo:', userStore.userInfo);
@@ -35,6 +50,7 @@ console.log('in home page,userInfo:', userStore.userInfo);
 const state: any = reactive({
     searchContent: '',
     searchList: [],
+    notifyList: [],
 });
 
 
@@ -49,14 +65,7 @@ const roomView: any = reactive({
 
 //聊天数据
 const message: any = reactive({
-    list: [
-        {
-            sender: "test1id",
-            receiver: "test2id",
-            content: "你好",
-            translatedText: "hello"
-        }
-    ]
+    list: []
 });
 
 //点击搜索
@@ -73,15 +82,22 @@ const onSearch = async () => {
 };
 //点击搜索
 
-//点击搜索列表或聊天列表后，开启聊天室
+//点击搜索列表或聊天列表后，开启单聊聊天室
 const goChat = async (receiverInfo: any) => {
     roomView.receiverInfo = receiverInfo;
     console.log('点击后对应的用户信息:', receiverInfo._id);
 
-    try {
-        const datas: any = await getHistory(receiverInfo._id);
-        console.log('聊天历史记录:', datas);
 
+    try {
+        const name = userStore.userInfo._id + " " + receiverInfo._id;
+        const datas2: any = await createGroup(name, 1);
+        console.log('创建聊天室：', datas2);
+
+        const datas: any = await getHistory(receiverInfo._id);
+        if (datas.status == 200) {
+            message.list = datas.message;
+            console.log('聊天历史记录:', datas);
+        }
     } catch (err) {
         console.log(err);
     }
@@ -94,7 +110,7 @@ const goChat = async (receiverInfo: any) => {
 const onSend = async () => {
     console.log(roomView.receiverInfo.language);
 
-    const datas = {
+    const sendData = {
         // isGroup: 0,//是否群组，默认否,如果是单聊就服务端处理翻译
         sender: userStore.userInfo._id,//自己的id
         receiver: roomView.receiverInfo._id,//要发送信息给那个人的id
@@ -105,27 +121,59 @@ const onSend = async () => {
     };
 
     //发送消息给服务端
-    socket.emit('message', { datas }, (data: any) => {
-        console.log('浏览器控制台打印:服务端回调函数传进来的实参:', data);
+    socket.emit('message', { sendData }, (data: any) => {
+        //发送成功的回调，可以写查找历史记录的业务，比如message.list = data;
+        message.list = data;
+        console.log('发送成功后:', data);
     });
+
+    // try {
+    //     const datas: any = await getHistory(roomView.receiverInfo._id);
+    //     message.list = datas.message;
+    //     console.log('聊天历史记录:', datas);
+
+    // } catch (err) {
+    //     console.log(err);
+    // }
+
 };
 //点击发送消息
 
 
 //获取聊天历史
-// const myGetHistory = async () => {
-//     try {
-//         let datas: any = await getHistory(userStore.userInfo._id, roomView.receiverInfo._id);
-//     } catch (err) {
-//         console.log(err);
+const myGetHistory = async () => {
+    try {
+        let datas: any = await getHistory(roomView.receiverInfo._id);
+        message.list = datas.message;
+        console.log('聊天历史记录：', message.list);
 
-//     }
-// }
+    } catch (err) {
+        console.log(err);
+
+    }
+};
+
+
+
+//获取消息预览列表
+const getNotifyList = async () => {
+    try {
+        let datas: any = await notifyList();
+        if (datas.status == 200) {
+            state.notifyList = datas.datas;
+        }
+
+        console.log('notify datas:', datas);
+
+    } catch (err) {
+        console.log(err);
+    }
+};
 
 onMounted(() => {
     let token = sessionStorage.getItem('token') == null ? '' : JSON.parse(sessionStorage.getItem('token')!);
     console.log('token::::', token.token);
-
+    getNotifyList();
 });
 
 </script>
@@ -135,6 +183,7 @@ onMounted(() => {
     <div class="flex-1 flex flex-col">
     
         <main class="flex-grow flex flex-row min-h-0">
+            
             <section class="flex flex-col flex-none overflow-auto w-24 hover:w-64 group lg:max-w-sm md:w-2/5 transition-all duration-300 ease-in-out">
                 <div class="header p-4 flex flex-row justify-between items-center flex-none">
                     <div class="w-16 h-16 relative flex flex-shrink-0" style="filter: invert(100%);">
