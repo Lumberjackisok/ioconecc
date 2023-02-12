@@ -6,7 +6,7 @@ const { JWT_SECRET } = require('../config/index');
 
 
 //ignore
-module.exports.sendMessage = async(req, res, next) => {
+module.exports.sendMessage = async (req, res, next) => {
     const { sender, receiver, contentType, content } = req.body;
 
     const token = req.headers['authorization'].replace('Bearer ', '');
@@ -31,11 +31,9 @@ module.exports.sendMessage = async(req, res, next) => {
 };
 
 //获取用户与用户之间的聊天记录
-module.exports.mssageHistory = async(req, res, next) => {
+module.exports.mssageHistory = async (req, res, next) => {
     const { receiver } = req.query;
-    const token = req.headers['authorization'].replace('Bearer ', '');
-    //验证token,拿到用户id和language
-    const payload = await verifyToken(token, JWT_SECRET);
+    const { payload } = req;
     if (payload.uid) {
         const messages = await Message.find({
             $or: [{
@@ -57,15 +55,14 @@ module.exports.mssageHistory = async(req, res, next) => {
         });
     }
 
-    return;
+    next();
 };
 
 //创建group，即聊天室,分群聊聊天室和单聊聊天室，先检测数据库有没有该聊天室
-module.exports.createGroup = async(req, res, next) => {
+module.exports.createGroup = async (req, res, next) => {
     const { name, isOne2One } = req.body;
-    const token = req.headers['authorization'].replace('Bearer ', '');
-    //验证token
-    const payload = await verifyToken(token, JWT_SECRET);
+    const { payload } = req;
+
     /**
      * 创建group前先检查有无group
      */
@@ -113,29 +110,21 @@ module.exports.createGroup = async(req, res, next) => {
     } catch (err) {
         console.log(err);
     }
-
-
-
-
-
 };
 
-//获取消息列表
-module.exports.notifyList = async(req, res, next) => {
+//获取消息预览列表
+module.exports.notifyList = async (req, res, next) => {
 
-    const token = req.headers['authorization'].replace('Bearer ', '');
-
-    //验证token,拿到用户id和language
-    const payload = await verifyToken(token, JWT_SECRET);
+    const { payload } = req;
 
     if (payload.uid) {
         try {
             const list = await Message.find({
-                    $or: [
-                        { sender: payload.uid },
-                        { receiver: payload.uid }
-                    ]
-                })
+                $or: [
+                    { sender: payload.uid },
+                    { receiver: payload.uid }
+                ]
+            })
                 .select("content sender receiver updateAt isRead traslatedContent")
                 .sort({ updateAt: -1 });
 

@@ -165,8 +165,7 @@ module.exports.search = async(req, res, next) => {
 };
 
 module.exports.test = async(req, res, next) => {
-    const { uid } = req.headers.token;
-    console.log(uid);
+
     return res.json({
         message: "hello",
         datas: uid,

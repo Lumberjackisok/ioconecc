@@ -1,4 +1,3 @@
-const jwt = require('jsonwebtoken');
 const { JWT_SECRET } = require('../config');
 const { verifyToken } = require('../utils/token');
 
@@ -26,16 +25,17 @@ const { verifyToken } = require('../utils/token');
  *    });
  *
  */
-module.exports = async(req, res, next) => {
+module.exports = async (req, res, next) => {
+
     try {
-        if (!req.headers.authorization) {
+        if (!req.headers['authorization']) {
             return res.json({
                 message: "must have authorization header.|请求头中不存在 Authorization 字段",
             })
         };
 
-        const token = req.headers.authorization.split(" ")[1];
-        const payload = await jwt.verify(token, JWT_SECRET);
+        const token = req.headers['authorization'].replace('Bearer ', '');
+        const payload = await verifyToken(token, JWT_SECRET);
         //req.payload储存token中的id以及token对应的其它用户信息
         req.payload = payload;
         next();

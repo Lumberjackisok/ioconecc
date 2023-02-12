@@ -109,32 +109,24 @@ const goChat = async (receiverInfo: any) => {
 //点击发送消息
 const onSend = async () => {
     console.log(roomView.receiverInfo.language);
+    if (roomView.content != '') {
+        const sendData = {
+            // isGroup: 0,//是否群组，默认否,如果是单聊就服务端处理翻译
+            sender: userStore.userInfo._id,//自己的id
+            receiver: roomView.receiverInfo._id,//要发送信息给那个人的id
+            contentType: 1,//1:文本，2：图片,暂时默认写死1，后期再根据实际做判断
+            content: roomView.content,//发送的信息内容
+            receiverLanguage: roomView.receiverInfo.language,//对方的母语
+            isRead: 0//0：未读，1：已读,默认未读
+        };
 
-    const sendData = {
-        // isGroup: 0,//是否群组，默认否,如果是单聊就服务端处理翻译
-        sender: userStore.userInfo._id,//自己的id
-        receiver: roomView.receiverInfo._id,//要发送信息给那个人的id
-        contentType: 1,//1:文本，2：图片,暂时默认写死1，后期再根据实际做判断
-        content: roomView.content,//发送的信息内容
-        receiverLanguage: roomView.receiverInfo.language,//对方的母语
-        isRead: 0//0：未读，1：已读,默认未读
+        //发送消息给服务端
+        socket.emit('message', { sendData }, (data: any) => {
+            //发送成功的回调，可以写查找历史记录的业务，比如message.list = data;
+            message.list = data;
+            console.log('发送成功后服务器返回来的:', data);
+        });
     };
-
-    //发送消息给服务端
-    socket.emit('message', { sendData }, (data: any) => {
-        //发送成功的回调，可以写查找历史记录的业务，比如message.list = data;
-        message.list = data;
-        console.log('发送成功后:', data);
-    });
-
-    // try {
-    //     const datas: any = await getHistory(roomView.receiverInfo._id);
-    //     message.list = datas.message;
-    //     console.log('聊天历史记录:', datas);
-
-    // } catch (err) {
-    //     console.log(err);
-    // }
 
 };
 //点击发送消息
