@@ -4,6 +4,7 @@ const groupSchema = new Schema({
     name: {
         type: String,
         required: true,
+        unique: true,
     },
     isOne2One: { //是否为单聊，1：单聊 ，0：群聊
         type: Number,

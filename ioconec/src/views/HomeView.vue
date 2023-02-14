@@ -9,6 +9,7 @@ import { search, getHistory, notifyList, createGroup } from '../https/index';
 import { useUserStore } from '@/stores/modules/user';
 import { baseURL } from '../privateKeys/index';
 import io from 'socket.io-client';
+import { notifyFormatter } from '../utils/time'
 
 //实例化userStore
 const userStore: any = useUserStore();
@@ -37,10 +38,11 @@ socket.on('disconnect', () => {
     console.log('连接断开');
 });
 
-socket.on('message', (data: any) => {
-    console.log('收到消息', data);
-    if (data.message == 'go get ppdate') {
-        myGetHistory();
+socket.on('message', async (data: any) => {
+    console.log('服务器监听到message,转发过来的数据', data);
+    if (data.message === 'go get update') {
+        getNotifyList();//获取最新的信息预览通知
+        // getHistory(id);
     }
 });
 
@@ -59,7 +61,8 @@ const state: any = reactive({
 const roomView: any = reactive({
     receiverInfo: null,
     content_type: 1,
-    content: ''
+    content: '',
+    groupId: "",
 });
 
 
@@ -83,23 +86,40 @@ const onSearch = async () => {
 //点击搜索
 
 //点击搜索列表或聊天列表后，开启单聊聊天室
-const goChat = async (receiverInfo: any) => {
+const goChat = async (receiverInfo: any, isNewChat: number) => {
     roomView.receiverInfo = receiverInfo;
     console.log('点击后对应的用户信息:', receiverInfo._id);
 
+    if (isNewChat === 1) {
+        try {
+            const name = userStore.userInfo._id + " " + receiverInfo._id;
+            const datas2: any = await createGroup(name, 1);
+            if (datas2.status === 200) {
+                console.log('创建聊天室：', datas2);
+                roomView.groupId = datas2.group._id;
+            }
 
-    try {
-        const name = userStore.userInfo._id + " " + receiverInfo._id;
-        const datas2: any = await createGroup(name, 1);
-        console.log('创建聊天室：', datas2);
-
-        const datas: any = await getHistory(receiverInfo._id);
-        if (datas.status == 200) {
-            message.list = datas.message;
-            console.log('聊天历史记录:', datas);
+            const datas: any = await getHistory(receiverInfo._id);
+            if (datas.status === 200) {
+                message.list = datas.datas.message;
+                console.log('聊天历史记录:', datas);
+            }
+        } catch (err) {
+            console.log(err);
         }
-    } catch (err) {
-        console.log(err);
+    } else {
+        //处理非新创建聊天室的情况
+        console.log(roomView.receiverInfo);
+
+
+        /**
+         * 1从服务器获取对应的聊天记录
+         * （服务器收到请求后将数据库里对应的message的状态更新为已读(isRead:1)）
+         * 
+        */
+        roomView.groupId = roomView.receiverInfo.notify.group;//对应的groupId更新过去
+        myGetHistory(roomView.receiverInfo._id);//去掉未读圆点
+        getNotifyList();
     }
 
 
@@ -117,13 +137,14 @@ const onSend = async () => {
             contentType: 1,//1:文本，2：图片,暂时默认写死1，后期再根据实际做判断
             content: roomView.content,//发送的信息内容
             receiverLanguage: roomView.receiverInfo.language,//对方的母语
-            isRead: 0//0：未读，1：已读,默认未读
+            isRead: 0,//0：未读，1：已读,默认未读
+            groupId: roomView.groupId,
         };
 
         //发送消息给服务端
         socket.emit('message', { sendData }, (data: any) => {
             //发送成功的回调，可以写查找历史记录的业务，比如message.list = data;
-            message.list = data;
+            // message.list = data;
             console.log('发送成功后服务器返回来的:', data);
         });
     };
@@ -133,15 +154,16 @@ const onSend = async () => {
 
 
 //获取聊天历史
-const myGetHistory = async () => {
+const myGetHistory = async (receiver: any) => {
     try {
-        let datas: any = await getHistory(roomView.receiverInfo._id);
-        message.list = datas.message;
-        console.log('聊天历史记录：', message.list);
+        let datas: any = await getHistory(receiver);
+        if (datas.status === 200) {
+            message.list = datas.datas.message;
+            console.log('聊天历史记录10086：', datas);
 
+        }
     } catch (err) {
         console.log(err);
-
     }
 };
 
@@ -152,10 +174,10 @@ const getNotifyList = async () => {
     try {
         let datas: any = await notifyList();
         if (datas.status == 200) {
-            state.notifyList = datas.datas;
+            console.log('notify list:', datas);
+            state.notifyList = datas;
         }
 
-        console.log('notify datas:', datas);
 
     } catch (err) {
         console.log(err);
@@ -213,70 +235,38 @@ onMounted(() => {
                   <!-- 消息预览列表 -->
                 <div v-if="state.searchContent == ''" class="contacts p-2 flex-1 overflow-y-scroll">
                   
-                    <div class="flex justify-between items-center p-3 hover:bg-gray-800 rounded-lg relative">
+                    <div v-for="item, index in state.notifyList.frends" :key="index" @click="goChat(item, 0)" class="flex justify-between items-center p-3 hover:bg-gray-800 rounded-lg relative">
+                         <!-- 头像 -->
                         <div class="w-16 h-16 relative flex flex-shrink-0">
                             <img class="shadow-md rounded-full w-full h-full object-cover"
-                                 src="https://randomuser.me/api/portraits/women/61.jpg"
+                                 :src="item.avatar"
                                  alt=""
                             />
                         </div>
+                   <!-- 头像 -->
+                
+
+                <!-- 用户名、最新收到的信息、时间 -->
                         <div class="flex-auto min-w-0 ml-4 mr-6 hidden md:block group-hover:block">
-                            <p>Angelina Jolie</p>
+                            <p>{{ item.username }}</p>
                             <div class="flex items-center text-sm text-gray-600">
                                 <div class="min-w-0">
-                                    <p class="truncate">Ok, see you at the subway in a bit.</p>
+                                    <p class="truncate">{{ item.notify.content }}</p>
                                 </div>
-                                <p class="ml-2 whitespace-no-wrap">Just now</p>
+                                <p class="ml-2 whitespace-no-wrap">{{ notifyFormatter(item.notify.updateAt) }}</p>
                             </div>
                         </div>
+                        <div v-if="userStore.userInfo._id != item.notify.sender && item.notify.isRead == 0" class="bg-blue-700 w-3 h-3 rounded-full flex flex-shrink-0 hidden md:block group-hover:block"></div>
                     </div>
-
-                    <div class="flex justify-between items-center p-3 hover:bg-gray-800 rounded-lg relative">
-                        <div class="w-16 h-16 relative flex flex-shrink-0">
-                            <img class="shadow-md rounded-full w-full h-full object-cover"
-                                 src="https://randomuser.me/api/portraits/men/97.jpg"
-                                 alt=""
-                            />
-                            <div class="absolute bg-gray-900 p-1 rounded-full bottom-0 right-0">
-                                <div class="bg-green-500 rounded-full w-3 h-3"></div>
-                            </div>
-                        </div>
-                        <div class="flex-auto min-w-0 ml-4 mr-6 hidden md:block group-hover:block">
-                            <p class="font-bold">Tony Stark</p>
-                            <div class="flex items-center text-sm font-bold">
-                                <div class="min-w-0">
-                                    <p class="truncate">Hey, Are you there?</p>
-                                </div>
-                                <p class="ml-2 whitespace-no-wrap">10min</p>
-                            </div>
-                        </div>
-                        <div class="bg-blue-700 w-3 h-3 rounded-full flex flex-shrink-0 hidden md:block group-hover:block"></div>
-                    </div>
-
-                    <div class="flex justify-between items-center p-3 bg-gray-800 rounded-lg relative">
-                        <div class="w-16 h-16 relative flex flex-shrink-0">
-                            <img class="shadow-md rounded-full w-full h-full object-cover"
-                                 src="https://randomuser.me/api/portraits/women/33.jpg"
-                                 alt=""
-                            />
-                        </div>
-                        <div class="flex-auto min-w-0 ml-4 mr-6 hidden md:block group-hover:block">
-                            <p>Scarlett Johansson</p>
-                            <div class="flex items-center text-sm text-gray-600">
-                                <div class="min-w-0">
-                                    <p class="truncate">You sent a photo.</p>
-                                </div>
-                                <p class="ml-2 whitespace-no-wrap">1h</p>
-                                
-                            </div>
-                        </div>
-                    </div>
+                <!-- 用户名、最新收到的信息、时间 -->
+                    
                 </div>
                   <!-- 消息预览列表 -->
 
+
                   <!-- 搜索用户列表 -->
                 <div v-if="state.searchContent != ''" class="contacts p-2 flex-1 overflow-y-scroll">
-                    <div v-for="item in state.searchList" :key="item" @click="goChat(item)" class="flex justify-between items-center p-3 hover:bg-gray-800 rounded-lg relative">
+                    <div v-for="item in state.searchList" :key="item" @click="goChat(item, 1)" class="flex justify-between items-center p-3 hover:bg-gray-800 rounded-lg relative">
                         <div class="w-16 h-16 relative flex flex-shrink-0">
                             <img class="shadow-md rounded-full w-full h-full object-cover"
                                  :src="item.avatar"
@@ -301,6 +291,7 @@ onMounted(() => {
 
             <!-- 聊天室视图 -->
             <section v-if="roomView.receiverInfo" class="flex flex-col flex-auto border-l border-gray-800">
+                
                 <div class="chat-header px-6 py-4 flex flex-row flex-none justify-between items-center shadow">
                     <div class="flex">
                         <div class="w-12 h-12 mr-4 relative flex flex-shrink-0">
@@ -354,7 +345,6 @@ onMounted(() => {
                        <!-- 信息内容 -->
                         <div class="messages text-sm text-gray-700 grid grid-flow-row gap-2">
 
-                           
                             
                             <!-- 文本信息 -->
                             <div class="flex items-center group">
@@ -530,7 +520,7 @@ C15.786,7.8,14.8,8.785,14.8,10s0.986,2.2,2.201,2.2S19.2,11.215,19.2,10S18.216,7.
                 </div>
                 <!-- 对话流 -->
 
-                <!-- 发送消息栏目 -->
+                <!-- 底部发送消息栏目 -->
                 <div class="chat-footer flex-none">
                     <div class="flex flex-row items-center p-4">
                         <!-- <button type="button" class="flex flex-shrink-0 focus:outline-none mx-2 block text-blue-600 hover:text-blue-700 w-6 h-6">
@@ -571,11 +561,19 @@ C15.786,7.8,14.8,8.785,14.8,10s0.986,2.2,2.201,2.2S19.2,11.215,19.2,10S18.216,7.
                         </button>
                     </div>
                 </div>
-                <!-- 发送消息栏目 -->
+                <!-- 底部发送消息栏目 -->
 
             </section>
             <!-- 聊天室视图 -->
 
+            <section v-else class="flex flex-col flex-auto border-l border-gray-800">
+                
+                 <div className="hero-content flex-col lg:flex-row-reverse">
+                    <div className="text-center lg:text-center">
+                        <p className="py-6">Hello,Motherfucker.</p>
+                    </div>
+                </div>
+            </section>
         </main>
     </div>
 </div>

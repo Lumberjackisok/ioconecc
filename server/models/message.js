@@ -24,6 +24,7 @@ const messageSchema = new Schema({
     group: { //群组
         type: Schema.Types.ObjectId, //群组id
         ref: 'Group',
+        required: true
     },
     isRead: { //是否已读
         type: Number,
