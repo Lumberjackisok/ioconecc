@@ -6,11 +6,15 @@ import router from './router'
 
 import './index.css'
 
+
+
 const app = createApp(App);
 
 setupStore(app);
 
 app.use(router);
+
+
 
 app.mount('#app');
 
