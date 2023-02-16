@@ -13,28 +13,37 @@ const props = defineProps({
   }
 });
 
-const typing = (speed: number) => {
 
-};
 
 let typingText = ref('');
+const state: any = reactive({
+  cursor: 1,
+});
 
 onMounted(() => {
-  const typingInterval = setInterval(() => {
-    if (typingText.value.length < props.text.length) {
-      typingText.value += props.text[typingText.value.length];
-    } else {
-      clearInterval(typingInterval);
-    }
-  }, 200)
+  setTimeout(() => {
+    const typingInterval = setInterval(() => {
+      if (typingText.value.length < props.text.length) {
+        typingText.value += props.text[typingText.value.length];
+      } else {
+        clearInterval(typingInterval);
+        if (typingText.value.length != 0) {
+          setTimeout(() => {
+            state.cursor = 0;
+          }, 2000)
+        }
+      }
+    }, 200)
+  }, 2000)
+
 })
 
 </script>
 
 <template>
   <div class="typing-text-container">
-  <span class="typing-text" className="py-6">{{ typingText }}</span>
-  <span class="typing-cursor ">&nbsp;</span>
+  <span class="typing-text" className="px-0.5">{{ typingText }}</span>
+  <span class="typing-cursor" v-if="state.cursor">&nbsp;</span>
   </div>
 </template>
 

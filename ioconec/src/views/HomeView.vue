@@ -69,6 +69,7 @@ const roomView: any = reactive({
     content_type: 1,
     content: '',
     groupId: "",
+    close: 0,
 });
 
 
@@ -93,6 +94,8 @@ const onSearch = async () => {
 
 //点击搜索列表或聊天列表后，开启单聊聊天室
 const goChat = async (receiverInfo: any, isNewChat: number) => {
+    roomView.close = 0;//是否关闭聊天窗口
+    scrollToBottom();
     roomView.receiverInfo = receiverInfo;
     console.log('点击后对应的用户信息:', receiverInfo._id);
 
@@ -108,7 +111,7 @@ const goChat = async (receiverInfo: any, isNewChat: number) => {
             const datas: any = await getHistory(receiverInfo._id);
             if (datas.status === 200) {
                 message.list = datas.datas.message;
-                console.log('聊天历史记录:', datas);
+                console.log('跳转到聊天界面的聊天历史记录:', datas);
             }
         } catch (err) {
             console.log(err);
@@ -190,6 +193,18 @@ const getNotifyList = async () => {
     }
 };
 
+//容器触底方法
+const chatBody: any = ref(null);
+const scrollToBottom = () => {
+    const timer = setInterval(() => {
+        chatBody.value.scrollTop += 30;
+        if (chatBody.value.scrollTop + chatBody.value.clientHeight >=
+            chatBody.value.scrollHeight - 2) {
+            clearInterval(timer);
+        }
+    }, 11)
+}
+
 onMounted(() => {
     let token = sessionStorage.getItem('token') == null ? '' : JSON.parse(sessionStorage.getItem('token')!);
     console.log('token::::', token.token);
@@ -205,10 +220,10 @@ onMounted(() => {
         <main class="flex-grow flex flex-row min-h-0">
             
             <section class="flex flex-col flex-none overflow-auto w-24 hover:w-64 group lg:max-w-sm md:w-2/5 transition-all duration-300 ease-in-out">
-                <div class="header p-4 flex flex-row justify-between items-center flex-none">
-                    <div class="w-16 h-16 relative flex flex-shrink-0" style="filter: invert(100%);">
-                        <img class="rounded-full w-full h-full object-cover" alt="ravisankarchinnam"
-                             src="../assets/fire.ico"/>
+                <div class="header p-4 flex flex-row justify-between items-center flex-none ">
+                    <div @click="roomView.close = 1" class="w-10 h-10 relative flex flex-shrink-0 cursor-pointer" style="">
+                        <img class="rounded-5 w-full h-full object-cover" alt=""
+                             src="../assets/saturn2.ico"/>
                     </div>
                     <p class="text-md font-bold hidden md:block group-hover:block">IOconec</p>
                     <a href="#" class="block rounded-full hover:bg-gray-700 bg-gray-800 w-10 h-10 p-2 hidden md:block group-hover:block">
@@ -296,7 +311,7 @@ onMounted(() => {
             </section>
 
             <!-- 聊天室视图 -->
-            <section v-if="roomView.receiverInfo" class="flex flex-col flex-auto border-l border-gray-800">
+            <section v-if="roomView.receiverInfo && roomView.close == 0" class="flex flex-col flex-auto border-l border-gray-800">
                 
                 <div class="chat-header px-6 py-4 flex flex-row flex-none justify-between items-center shadow">
                     <div class="flex">
@@ -308,7 +323,7 @@ onMounted(() => {
                         </div>
                         <div class="text-sm">
                             <p class="font-bold">{{ roomView.receiverInfo.username }}</p>
-                            <p>some text...</p>
+                            <p>some text here...</p>
                         </div>
                     </div>
 
@@ -336,30 +351,45 @@ onMounted(() => {
 
                 
                 <!-- 对话流 -->
-                <div class="chat-body p-4 flex-1 overflow-y-scroll">
+                <div class="chat-body p-4 flex-1 overflow-y-scroll" ref="chatBody">
                     
                     <!-- 别人文本消息 others -->
-                    <div class="flex flex-row justify-start">
-                        <!-- 头像 -->
-                        <div class="flex items-center justify-center h-10 w-10 rounded-full  flex-shrink-0 mr-4">
-                            <img class="shadow-md rounded-full w-full h-full object-cover"
-                                        :src="roomView.receiverInfo.avatar"
-                                        alt="" />
-                        </div>
-                        <!-- 头像 -->
-
-                       <!-- 信息内容 -->
-                        <div class="messages text-sm text-gray-700 grid grid-flow-row gap-2">
-                            <!-- 文本信息 -->
-                            <div class="flex items-center group">
-                                <p class="px-6 py-3 rounded-t-full rounded-r-full bg-gray-800 max-w-xs lg:max-w-md text-gray-200">Hey! How are you?</p>
+                    <template v-for="item, index in message.list" :key="index">
+                        <div class="flex flex-row justify-start">
+                            <!-- 头像 -->
+                            <div class="flex items-center justify-center h-10 w-10 rounded-full  flex-shrink-0 mr-4">
+                                <img class="shadow-md rounded-full w-full h-full object-cover"
+                                            :src="roomView.receiverInfo.avatar"
+                                            alt="" />
                             </div>
-                            <!-- 文本信息 -->
+                            <!-- 头像 -->
 
-                           
-                        </div>
                         <!-- 信息内容 -->
-                    </div>
+                            <div class="messages text-sm text-gray-700 grid grid-flow-row gap-2">
+                                <!-- 文本信息 -->
+                                <div class="flex items-center group">
+                                    <p class="px-6 py-3 rounded-t-full rounded-r-full bg-gray-800 max-w-xs lg:max-w-md text-gray-200">Hey! How are you?</p>
+                                </div>
+
+                                <!-- 翻译文本 有动效-->
+                                <div class="flex items-center group mb-4 -mt-1" v-if="!false">
+                                    <p class="px-6 py-3 rounded-b-full rounded-r-full bg-gray-800 max-w-xs lg:max-w-md text-gray-200"><TypingText text="translated text here"></TypingText></p>
+                                </div>
+                                <!-- 翻译文本 有动效-->
+
+                                <!-- 翻译文本 无动效-->
+                                <div class="flex items-center group mb-4 -mt-1">
+                                    <p class="px-6 py-3 rounded-b-full rounded-r-full bg-gray-800 max-w-xs lg:max-w-md text-gray-200">translated text here,no animation</p>
+                                </div>
+                                <!-- 翻译文本 无动效-->
+
+                                <!-- 文本信息 -->
+
+                            
+                            </div>
+                            <!-- 信息内容 -->
+                        </div>
+                   </template>
                     <!--别人文本消息 others -->
 
                     <!-- 别人图片消息 others -->
@@ -493,7 +523,7 @@ onMounted(() => {
                  <div className="hero-content flex-col lg:flex-row-reverse">
                     <div className="text-center lg:text-center">
                         
-                   <TypingText text="Hello Motherfucker"></TypingText>
+                   <TypingText text="Hello motherfucker."></TypingText>
                     </div>
                 </div>
             </section>
