@@ -3,15 +3,33 @@ import { RouterView } from 'vue-router'
 </script>
 
 <template>
-  
-
   <RouterView />
+  <div class="main-container-Nprogress">
+
+  </div>
 </template>
 
 <style >
 /* body {
   padding: 0.5rem;
 } */
+/* #nprogress {
+  position: fixed !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 3px !important;
+  z-index: 9999 !important;
+} */
+
+#nprogress {
+  position: fixed !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 2px !important;
+  z-index: 99999 !important;
+}
 
 ::-webkit-scrollbar {
   width: 10px;

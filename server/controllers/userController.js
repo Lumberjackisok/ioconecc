@@ -10,7 +10,7 @@ const {
 
 
 //登录login
-module.exports.login = async(req, res, next) => {
+module.exports.login = async (req, res, next) => {
     const { email, password } = req.body;
     // console.log('email:', email); //可以正常打印
     //验证邮箱密码格式
@@ -65,7 +65,7 @@ module.exports.login = async(req, res, next) => {
 };
 
 //注册register
-module.exports.register = async(req, res, next) => {
+module.exports.register = async (req, res, next) => {
     const { email, username, password, language } = req.body;
 
 
@@ -127,44 +127,52 @@ module.exports.register = async(req, res, next) => {
 };
 
 //查找
-module.exports.search = async(req, res, next) => {
-    const { username } = req.query;
+// module.exports.search = async(req, res, next) => {
+//     const { username, page = 1, limit = 20 } = req.query;
 
+
+//     //$regex: username模糊查询，$options: 'i'不区分大小写
+//     const user = await User.find({ username: { $regex: username, $options: 'i' } });
+
+
+
+//     const users = user.map(item => { //不展示密码
+//         const newItem = {...item._doc };
+//         newItem.password = undefined;
+//         newItem.__v = undefined;
+//         return newItem;
+//     });
+
+//     return res.json({
+//         status: 200,
+//         message: "User search successful.|搜索成功",
+//         users
+//     })
+// };
+
+//查找
+module.exports.search = async (req, res, next) => {
+    const { username, page, limit } = req.query;
 
     //$regex: username模糊查询，$options: 'i'不区分大小写
-    const user = await User.find({ username: { $regex: username, $options: 'i' } });
-
-    const users = user.map(item => { //不展示密码
-        const newItem = {...item._doc };
-        newItem.password = undefined;
-        newItem.__v = undefined;
-        return newItem;
-    });
-
-    // const update = await User.updateMany({ 'avatar': '' }, {
-    //     $set: {
-    //         'avatar': `${randomAvatar()}`
-    //     }
-    // });
-
-    // const update = await User.find({});
-    // update.forEach(async item => {
-    //     let avatar = randomAvatar();
-    //     await item.update({
-    //         $set: {
-    //             'avatar': avatar
-    //         }
-    //     })
-    // })
+    const count = await User.countDocuments({ username: { $regex: username, $options: 'i' } });
+    const users = await User.find({ username: { $regex: username, $options: 'i' } })
+        .select('-password -__v')
+        .skip((page - 1) * limit)
+        .limit(limit);
 
     return res.json({
         status: 200,
         message: "User search successful.|搜索成功",
-        users
-    })
+        users,
+        total: count,
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(count / limit)
+    });
 };
 
-module.exports.test = async(req, res, next) => {
+
+module.exports.test = async (req, res, next) => {
 
     return res.json({
         message: "hello",

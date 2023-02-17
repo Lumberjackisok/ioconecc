@@ -24,10 +24,10 @@ export const register = (email: string, username: string, password: string, lang
   )
 };
 
-export const search = (username: string) => {
+export const search = (username: string, page = 1, limit = 10) => {
   return instance.get('/search', {
     params: {
-      username
+      username, page, limit
     },
     headers: {
       "Content-Type": "application/json;charset=UTF-8"
@@ -91,7 +91,7 @@ export const notifyList = () => {
 */
 export const createGroup = (name: string, isOne2One: number) => {
   return instance.post('/createGroup', {
-    name, 
+    name,
     isOne2One
   },
     {

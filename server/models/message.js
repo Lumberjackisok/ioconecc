@@ -18,7 +18,7 @@ const messageSchema = new Schema({
     content: { //消息内容
         type: String,
     },
-    traslatedContent: { //翻译消息内容
+    translatedContent: { //翻译消息内容
         type: String,
     },
     group: { //群组

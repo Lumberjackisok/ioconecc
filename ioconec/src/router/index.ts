@@ -50,7 +50,7 @@ router.beforeEach((to: RouteLocationNormalized, from: RouteLocationNormalized) =
   let token = sessionStorage.getItem('token');
   // let token = uerStore.token;
   if (to.meta.login && !token) {
-    return "/login?url=" + to.path;
+    return "/login" + to.path;
   }
   //标题
   if (to.meta.title) {

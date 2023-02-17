@@ -191,7 +191,7 @@ module.exports.notifyList = async (req, res, next) => {
                 });
 
                 //toObject()方法将对象转换为json对象便于为从mongoDB里取的数据添加键值对
-                frendsData.push(user.toObject());
+                frendsData.push(user.toObject() == undefined ? {} : user.toObject());
             }
 
 
@@ -202,10 +202,10 @@ module.exports.notifyList = async (req, res, next) => {
             let notifys = [];
             for (let i = 0; i < group.length; i++) {
                 let notify = await Message.find({ group: { $in: group[i]._id } })
-                    .select("content sender receiver updateAt isRead traslatedContent group")
+                    .select("content sender receiver updateAt isRead translatedContent group")
                     .sort({ updateAt: -1 }); //-1：降序，1：升序
 
-                notifys.push(notify[0].toObject());
+                notifys.push(notify[0] == undefined ? {} : notify[0].toObject());
             }
 
             //用循环将最新message和frendsData以一一对应的形式捆捆绑

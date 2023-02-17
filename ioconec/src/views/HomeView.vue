@@ -1,7 +1,7 @@
 <script lang="ts">
 export default {
     name: "HomeView",
-    components: { TypingText }
+    components: { TypingText, loding }
 }
 </script>
 <script setup lang="ts">
@@ -12,6 +12,8 @@ import { baseURL } from '../privateKeys/index';
 import io from 'socket.io-client';
 import { notifyFormatter } from '../utils/time'
 import TypingText from '@/components/TypingText.vue';
+import loding from '../components/Loading.vue';
+
 
 
 
@@ -58,6 +60,9 @@ console.log('in home page,userInfo:', userStore.userInfo);
 const state: any = reactive({
     searchContent: '',
     searchList: [],
+    searchPage: 1,
+    searchDatas: null,
+    isSeachOnload: false,
     notifyList: [],
 });
 
@@ -80,11 +85,19 @@ const message: any = reactive({
 
 //点击搜索
 const onSearch = async () => {
+    state.searchPage = 1;
     try {
-        let datas: any = await search(state.searchContent);
+        let datas: any = await search(state.searchContent, state.searchPage, 10);
         console.log('搜索：', datas);
         if (datas.status == 200) {
             state.searchList = datas.users;
+            state.searchDatas = {
+                currentPage: datas.currentPage,
+                total: datas.total,
+                totalPages: datas.totalPages
+            }
+
+
         }
     } catch (e) {
         console.log(e);
@@ -193,7 +206,7 @@ const getNotifyList = async () => {
     }
 };
 
-//容器触底方法
+//聊天界面容器触底方法
 const chatBody: any = ref(null);
 const scrollToBottom = () => {
     const timer = setInterval(() => {
@@ -204,6 +217,50 @@ const scrollToBottom = () => {
         }
     }, 11)
 }
+//聊天界面容器触底方法
+
+// 搜索列表加载更多方法
+/**
+ * 1.获取滚动节点 const searchListBody: any = ref(null);
+ * 2.在节点的onScroll事件内判断是否滚动触底： if (searchListBody.value.scrollTop + searchListBody.value.clientHeight >=
+ *          searchListBody.value.scrollHeight - 2){处理加载更多}
+ * 
+*/
+let searchListBody: any = ref(null);
+const loadMoreSearch = async () => {
+    if (state.searchPage == state.searchDatas.totalPages) {
+        return;
+    }
+
+    if (searchListBody.value.scrollTop + searchListBody.value.clientHeight >= searchListBody.value.scrollHeight - 2) {
+        console.log('触底了');
+        state.searchPage++;
+        state.isSeachOnload = true;
+        try {
+            let datas: any = await search(state.searchContent, state.searchPage, 10);
+            if (datas.status == 200) {
+                state.searchList = state.searchList.concat(datas.users);
+                state.searchDatas = {
+                    currentPage: datas.currentPage,
+                    total: datas.total,
+                    totalPages: datas.totalPages
+                }
+                state.isSeachOnload = false;
+            }
+
+        } catch (err) {
+            console.log(err);
+
+        }
+    }
+
+
+
+
+}
+// 搜索列表加载更多方法
+
+// 搜索列表触底
 
 onMounted(() => {
     let token = sessionStorage.getItem('token') == null ? '' : JSON.parse(sessionStorage.getItem('token')!);
@@ -286,7 +343,7 @@ onMounted(() => {
 
 
                   <!-- 搜索用户列表 -->
-                <div v-if="state.searchContent != ''" class="contacts p-2 flex-1 overflow-y-scroll">
+                <div v-if="state.searchContent != ''" class="contacts p-2 flex-1 overflow-y-scroll" ref="searchListBody" @scroll="loadMoreSearch">
                     <div v-for="item in state.searchList" :key="item" @click="goChat(item, 1)" class="flex justify-between items-center p-3 hover:bg-gray-800 rounded-lg relative">
                         <div class="w-16 h-16 relative flex flex-shrink-0">
                             <img class="shadow-md rounded-full w-full h-full object-cover"
@@ -304,7 +361,7 @@ onMounted(() => {
                             </div>
                         </div>
                     </div>
-                  
+                    <div class="flex justify-center"><loding :isLoading="state.isSeachOnload"></loding></div>
                 </div>
                   <!-- 搜索用户列表 -->
                   
@@ -349,7 +406,6 @@ onMounted(() => {
                 </div>
 
 
-                
                 <!-- 对话流 -->
                 <div class="chat-body p-4 flex-1 overflow-y-scroll" ref="chatBody">
                     

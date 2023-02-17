@@ -27,7 +27,7 @@ onMounted(() => {
         typingText.value += props.text[typingText.value.length];
       } else {
         clearInterval(typingInterval);
-        if (typingText.value.length != 0) {
+        if (typingText.value.length != 0) {//目的是空字符串的时候光标同样显示
           setTimeout(() => {
             state.cursor = 0;
           }, 2000)

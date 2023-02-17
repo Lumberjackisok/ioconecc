@@ -30,6 +30,7 @@ module.exports = async (req, res, next) => {
     try {
         if (!req.headers['authorization']) {
             return res.json({
+                status: 401,
                 message: "must have authorization header.|请求头中不存在 Authorization 字段",
             })
         };
