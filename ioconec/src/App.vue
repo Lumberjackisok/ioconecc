@@ -5,7 +5,6 @@ import { RouterView } from 'vue-router'
 <template>
   <RouterView />
   <div class="main-container-Nprogress">
-
   </div>
 </template>
 
@@ -13,14 +12,7 @@ import { RouterView } from 'vue-router'
 /* body {
   padding: 0.5rem;
 } */
-/* #nprogress {
-  position: fixed !important;
-  bottom: 0 !important;
-  left: 0 !important;
-  width: 100% !important;
-  height: 3px !important;
-  z-index: 9999 !important;
-} */
+
 
 #nprogress {
   position: fixed !important;

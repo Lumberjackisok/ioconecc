@@ -109,9 +109,9 @@ io.on('connection', async(socket) => {
         //如果对方的language和自己的language不一样才进行翻译
         if (receiverDatas.language != senderDatas.language) {
             //使用openai的davinci-003进行翻译
-            const traslatedContent = await openAITranslate(sendData.content, sendData.receiverLanguage);
+            const translatedContent = await openAITranslate(sendData.content, sendData.receiverLanguage);
             console.log('原文：', sendData.content);
-            console.log('翻译文本：', traslatedContent);
+            console.log('翻译文本：', translatedContent);
 
 
             //写入数据库
@@ -120,7 +120,7 @@ io.on('connection', async(socket) => {
                 receiver: sendData.receiver,
                 contentType: sendData.contentType,
                 content: sendData.content,
-                traslatedContent: traslatedContent,
+                translatedContent: translatedContent,
                 // group: group._id,
                 group: sendData.groupId,
                 isRead: 0,

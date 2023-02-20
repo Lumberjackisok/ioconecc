@@ -6,7 +6,7 @@ export default {
 </script>
 <script setup lang="ts">
 import { ref, reactive, onMounted, inject } from 'vue';
-import { search, getHistory, notifyList, createGroup } from '../https/index';
+import { search, getHistory, notifyList, createGroup, updateMessageStatus } from '../https/index';
 import { useUserStore } from '@/stores/modules/user';
 import { baseURL } from '../privateKeys/index';
 import io from 'socket.io-client';
@@ -49,7 +49,7 @@ socket.on('message', async (data: any) => {
     console.log('服务器监听到message,转发过来的数据', data);
     if (data.message === 'go get update') {
         getNotifyList();//获取最新的信息预览通知
-        // getHistory(id);
+
     }
 });
 
@@ -64,6 +64,7 @@ const state: any = reactive({
     searchDatas: null,
     isSeachOnload: false,
     notifyList: [],
+    blueCircleIsShow: 1,//控制蓝色圈圈是否显示
 });
 
 
@@ -74,7 +75,9 @@ const roomView: any = reactive({
     content_type: 1,
     content: '',
     groupId: "",
-    close: 0,
+    close: 0,//控制显示聊天室画面
+    showToBottomButton: false,//控制是否显示点击触底按钮和未读消息计数
+    notReadCount: 0,//未读数量
 });
 
 
@@ -108,11 +111,17 @@ const onSearch = async () => {
 //点击搜索列表或聊天列表后，开启单聊聊天室
 const goChat = async (receiverInfo: any, isNewChat: number) => {
     roomView.close = 0;//是否关闭聊天窗口
-    scrollToBottom();
+
     roomView.receiverInfo = receiverInfo;
     console.log('点击后对应的用户信息:', receiverInfo._id);
 
+    /**
+     * 
+     * 
+    */
+
     if (isNewChat === 1) {
+        //如果是新建聊天就创建聊天室
         try {
             const name = userStore.userInfo._id + " " + receiverInfo._id;
             const datas2: any = await createGroup(name, 1);
@@ -121,32 +130,77 @@ const goChat = async (receiverInfo: any, isNewChat: number) => {
                 roomView.groupId = datas2.group._id;
             }
 
-            const datas: any = await getHistory(receiverInfo._id);
-            if (datas.status === 200) {
-                message.list = datas.datas.message;
-                console.log('跳转到聊天界面的聊天历史记录:', datas);
-            }
         } catch (err) {
             console.log(err);
         }
     } else {
         //处理非新创建聊天室的情况
-        console.log(roomView.receiverInfo);
+        try {
+            console.log('非新创建聊天', roomView.receiverInfo);
+
+            roomView.groupId = roomView.receiverInfo.notify.group;//对应的groupId更新过去
+
+            //先获取历史记录
+            let datas: any = await getHistory(roomView.receiverInfo._id);
+            if (datas.status === 200) {
+                message.list = datas.datas.message;
+                console.log('跳转到聊天界面的聊天历史记录:', datas);
+
+                //获取未读消息的条数
+                const notReadCount = datas.datas.message.filter((item: any) => {
+                    return item.isRead === 0;
+                }).length;
+
+                console.log('未读消息数量：', notReadCount);
+
+                //如果最新的一条消息的接收者不是自己的id就直接触底
+                if (datas.datas.message[datas.datas.message.length - 1].receiver != userStore.userInfo._id) {
+                    roomView.showToBottomButton = false;
+                    roomView.notReadCount = 0;
+                    scrollToBottom();
+
+                } else if (notReadCount == 0) {//如果最新的消息的接收者是自己，但notReadCount=0，同样直接触底
+                    scrollToBottom();
+
+                } else {//如果最新的消息的接收者是自己,并且notReadCount！=0，就scroll到最前面那条未读消息的位置
+                    roomView.notReadCount = notReadCount;
+                    roomView.showToBottomButton = notReadCount == 0 ? false : true;
+
+                    //按时间戳降序排序，再过滤掉已读的，取第一个,就是对应的消息的dom的id
+                    const scrollToRead = message.list.sort((a: any, b: any) => {
+                        return a.updateAt - b.updateAt
+                    }).filter((item: any) => { return item.isRead == 0 })[0]._id
+
+                    console.log("scrollToRead:", scrollToRead);
+
+                    //获取dom，在setTimeout内的目的是让dom加载完毕后再去获取
+                    setTimeout(() => {
+                        let firstNotReadDom: any = document.getElementById(scrollToRead);
+                        console.log('firstNotReaDdom:', firstNotReadDom);
+                        if (firstNotReadDom) {
+                            //直接使用scrollIntoView()方法
+                            firstNotReadDom.scrollIntoView();
+                        }
+                    }, 10);
 
 
-        /**
-         * 1从服务器获取对应的聊天记录
-         * （服务器收到请求后将数据库里对应的message的状态更新为已读(isRead:1)）
-         * 
-        */
-        roomView.groupId = roomView.receiverInfo.notify.group;//对应的groupId更新过去
-        myGetHistory(roomView.receiverInfo._id);//去掉未读圆点
-        getNotifyList();
+                }
+
+
+
+            }
+
+            getNotifyList();
+        } catch (err) {
+            console.log(err);
+        }
     }
 
 
 };
 //点击搜索列表或聊天列表后，开启聊天室
+
+
 
 //点击发送消息
 const onSend = async () => {
@@ -200,11 +254,21 @@ const getNotifyList = async () => {
             state.notifyList = datas;
         }
 
-
     } catch (err) {
         console.log(err);
     }
 };
+
+//更新已读状态
+const postUpdateMessageStatus = async () => {
+    try {
+        let datas: any = await updateMessageStatus(roomView.receiverInfo._id);
+        console.log('更新已读状态：', datas);
+
+    } catch (err) {
+        console.log(err);
+    }
+}
 
 //聊天界面容器触底方法
 const chatBody: any = ref(null);
@@ -214,10 +278,58 @@ const scrollToBottom = () => {
         if (chatBody.value.scrollTop + chatBody.value.clientHeight >=
             chatBody.value.scrollHeight - 2) {
             clearInterval(timer);
+            roomView.showToBottomButton = false;
+            roomView.notReadCount = 0;
         }
     }, 11)
 }
 //聊天界面容器触底方法
+
+//检测dom节点是否在窗口底部
+const isElementAtBottom = (element: HTMLElement) => {
+
+}
+
+
+// 当聊天界面滚动
+const chatBodyScroll = () => {
+    console.log('console.log(chatBody.value.clientHeight):',chatBody.value.scrollTop);
+
+    for (let i = 0; i < message.list.length; i++) {
+        const dom: any = document.getElementById(message.list[i]._id);
+        console.log(dom.offsetTop);
+        
+        
+
+    }
+
+    //如果滚动触底，隐藏按钮，计数归零
+    if (chatBody.value.scrollTop + chatBody.value.clientHeight >= chatBody.value.scrollHeight - 2) {
+        roomView.showToBottomButton = false;
+        roomView.notReadCount = 0;
+
+        /**
+         * 如果最后一条消息是自己发送的，即最后一条消息的sender=自己的id，
+         * 即自己是发送者，
+         * 以及最后一条消息的已读状态为1,
+         * 则不更新消息状态为已读,
+         * 但是如果是自己发送的，并且不更新，那么计数和向下按钮也会为自己显示，
+         * 所以，在点击消息预览后，如果最新的一条消息的接收者不是自己的id就直接触底，具体在gochat()方法内
+        */
+        if (message.list[message.list.length - 1].sender != userStore.userInfo._id && message.list[message.list.length - 1].isRead != 1) {
+            postUpdateMessageStatus();
+
+        }
+
+
+    }
+    //当页面向下滚动
+
+
+}
+// 当聊天界面滚动
+
+
 
 // 搜索列表加载更多方法
 /**
@@ -254,13 +366,8 @@ const loadMoreSearch = async () => {
         }
     }
 
-
-
-
 }
 // 搜索列表加载更多方法
-
-// 搜索列表触底
 
 onMounted(() => {
     let token = sessionStorage.getItem('token') == null ? '' : JSON.parse(sessionStorage.getItem('token')!);
@@ -334,7 +441,7 @@ onMounted(() => {
                                 <p class="ml-2 whitespace-no-wrap">{{ notifyFormatter(item.notify.updateAt) }}</p>
                             </div>
                         </div>
-                        <div v-if="userStore.userInfo._id != item.notify.sender && item.notify.isRead == 0" class="bg-blue-700 w-3 h-3 rounded-full flex flex-shrink-0 hidden md:block group-hover:block"></div>
+                        <div v-if="userStore.userInfo._id != item.notify.sender && item.notify.isRead == 0 && !roomView.showToBottomButton" class="bg-blue-700 w-3 h-3 rounded-full flex flex-shrink-0 hidden md:block group-hover:block"></div>
                     </div>
                 <!-- 用户名、最新收到的信息、时间 -->
                     
@@ -407,40 +514,49 @@ onMounted(() => {
 
 
                 <!-- 对话流 -->
-                <div class="chat-body p-4 flex-1 overflow-y-scroll" ref="chatBody">
+                <div class="chat-body p-4 flex-1 overflow-y-scroll" ref="chatBody" @scroll="chatBodyScroll">
                     
                     <!-- 别人文本消息 others -->
                     <template v-for="item, index in message.list" :key="index">
-                        <div class="flex flex-row justify-start">
+                        
+                     
+                        <div :class="userStore.userInfo._id == item.receiver && item.contentType == 1 ? 'flex flex-row justify-start mt-1' : 'flex justify-start flex-row-reverse mt-3'">
                             <!-- 头像 -->
-                            <div class="flex items-center justify-center h-10 w-10 rounded-full  flex-shrink-0 mr-4">
+                            <div  class="flex items-center justify-center h-10 w-10 rounded-full  flex-shrink-0 mr-4 ml-2">
                                 <img class="shadow-md rounded-full w-full h-full object-cover"
-                                            :src="roomView.receiverInfo.avatar"
+                                            :src="userStore.userInfo._id == item.receiver && item.contentType == 1 ? roomView.receiverInfo.avatar : userStore.userInfo.avatar"
                                             alt="" />
                             </div>
                             <!-- 头像 -->
 
                         <!-- 信息内容 -->
-                            <div class="messages text-sm text-gray-700 grid grid-flow-row gap-2">
+                            <div class="messages text-sm text-white grid grid-flow-row gap-2" :id="item._id">
                                 <!-- 文本信息 -->
-                                <div class="flex items-center group">
-                                    <p class="px-6 py-3 rounded-t-full rounded-r-full bg-gray-800 max-w-xs lg:max-w-md text-gray-200">Hey! How are you?</p>
+                                <div :class="userStore.userInfo._id == item.receiver && item.contentType == 1 ? 'flex items-center group' : 'flex items-center flex-row-reverse group'">
+                                    <p :class="userStore.userInfo._id == item.receiver && item.contentType == 1 ? 'px-6 py-3 rounded-t-full rounded-r-full bg-gray-800 max-w-xs lg:max-w-md' : 'px-6 py-3 rounded-t-full rounded-l-full bg-blue-700 max-w-xs lg:max-w-md'">{{ item.content }}</p>
                                 </div>
 
                                 <!-- 翻译文本 有动效-->
-                                <div class="flex items-center group mb-4 -mt-1" v-if="!false">
-                                    <p class="px-6 py-3 rounded-b-full rounded-r-full bg-gray-800 max-w-xs lg:max-w-md text-gray-200"><TypingText text="translated text here"></TypingText></p>
+                                <div v-if="(userStore.userInfo._id == item.receiver && item.contentType == 1)" class="flex items-center group mb-4 -mt-1">
+                                    <p class="px-6 py-3 rounded-b-full rounded-r-full bg-gray-800 max-w-xs lg:max-w-md text-gray-200"><TypingText :text="item.translatedContent"></TypingText></p>
                                 </div>
                                 <!-- 翻译文本 有动效-->
 
                                 <!-- 翻译文本 无动效-->
-                                <div class="flex items-center group mb-4 -mt-1">
+                                <div v-if="(userStore.userInfo._id == item.receiver && item.contentType == 1)" class="flex items-center group mb-4 -mt-1">
                                     <p class="px-6 py-3 rounded-b-full rounded-r-full bg-gray-800 max-w-xs lg:max-w-md text-gray-200">translated text here,no animation</p>
                                 </div>
                                 <!-- 翻译文本 无动效-->
 
                                 <!-- 文本信息 -->
 
+                                <!-- 图片信息 -->
+                            <div v-if="(userStore.userInfo._id == item.receiver && item.contentType == 2)" calss="flex items-center group">
+                                        <a class="block w-64 h-64 relative flex flex-shrink-0 max-w-xs lg:max-w-md" href="#">
+                                            <img class="absolute shadow-md w-full h-full rounded-r-lg object-cover" :src="roomView.receiverInfo.avatar" alt="hiking"/>
+                                        </a>
+                                </div>
+                                <!-- 图片信息 -->
                             
                             </div>
                             <!-- 信息内容 -->
@@ -448,82 +564,21 @@ onMounted(() => {
                    </template>
                     <!--别人文本消息 others -->
 
-                    <!-- 别人图片消息 others -->
-                    <div class="flex flex-row justify-start mt-2">
-                        <!-- 头像 -->
-                       
-                        <div class="flex items-center justify-center h-10 w-10 rounded-full  flex-shrink-0 mr-4">
-                            <img class="shadow-md rounded-full w-full h-full object-cover"
-                                        :src="roomView.receiverInfo.avatar"
-                                        alt="" />
-                        </div>
-                        <!-- 头像 -->
-
-                       <!-- 信息内容 -->
-                        <div class="messages text-sm text-gray-700 grid grid-flow-row gap-2">
-                            <!-- 图片信息 -->
-                            <div calss="flex items-center group">
-                                    <a class="block w-64 h-64 relative flex flex-shrink-0 max-w-xs lg:max-w-md" href="#">
-                                        <img class="absolute shadow-md w-full h-full rounded-r-lg object-cover" :src="roomView.receiverInfo.avatar" alt="hiking"/>
-                                    </a>
-                            </div>
-                            <!-- 图片信息 -->
-                        </div>
-                        <!-- 信息内容 -->
-                    </div>
-                    <!--别人图片消息 others -->
+                   
 
                     <!-- 更新时间 -->
                     <p class="p-4 text-center text-sm text-gray-500">FRI 3:04 PM</p>
                     <!-- 更新时间 -->
 
 
-                    <!-- 自己文本消息 me text-->
-                    <div class="flex  justify-start flex-row-reverse mt-2">
-                         <!-- 头像 -->
-                         <div class="flex items-center justify-center h-10 w-10 rounded-full  flex-shrink-0 ml-4">
-                            <img class="shadow-md rounded-full w-full h-full object-cover"
-                                        :src="userStore.userInfo.avatar"
-                                        alt="" />
-                        </div>
-                        <!-- 头像 -->
-                       
-                        
-                        <div class="messages text-sm text-white grid grid-flow-row gap-2">
-                            <!-- 文本信息 -->
-                            <div class="flex items-center flex-row-reverse group">
-                                <p class="px-6 py-3 rounded-t-full rounded-l-full bg-blue-700 max-w-xs lg:max-w-md">Hey! How are you?</p>
-                            </div>
-                            <!-- 文本信息 -->
-                        </div>
-                    </div> 
-                    <!-- 自己文本消息 me text-->
-
-                    <!-- 自己图片消息 me image-->
-                    <div class="flex  justify-start flex-row-reverse mt-2">
-                         <!-- 头像 -->
-                         <div class="flex items-center justify-center h-10 w-10 rounded-full  flex-shrink-0 ml-4">
-                            <img class="shadow-md rounded-full w-full h-full object-cover"
-                                        :src="userStore.userInfo.avatar"
-                                        alt="" />
-                        </div>
-                        <!-- 头像 -->
-                       
-                        
-                        <div class="messages text-sm text-white grid grid-flow-row gap-2">
-                            <!-- 图片信息 -->
-                            <div class="flex items-center flex-row-reverse group">
-                                <a class="block w-64 h-64 relative flex flex-shrink-0 max-w-xs lg:max-w-md" href="#">
-                                    <img class="absolute shadow-md w-full h-full rounded-l-lg object-cover" :src="userStore.userInfo.avatar" alt=""/>
-                                </a>
-                                
-                            </div>
-                            <!-- 图片信息 -->
-
-                           
-                        </div>
+                    <!-- 触底按钮和未读计数 -->
+                    <div v-if="roomView.showToBottomButton" @click="scrollToBottom" class="fixed bottom-20 right-8 flex flex-col items-center">
+                       <div class="flex justify-center absolute -top-2">{{ roomView.notReadCount }}</div>
+                        <button className="btn btn-circle">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 transform rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                        </button>
                     </div>
-                    <!-- 自己图片消息 me image-->
+                    <!-- 触底按钮和未读计数 -->
 
                 </div>
                 <!-- 对话流 -->

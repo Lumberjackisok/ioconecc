@@ -52,20 +52,7 @@ module.exports.mssageHistory = async (req, res, next) => {
                 message: messages,
             };
 
-            //更新状态
-            await Message.updateMany({
-                $or: [{
-                    sender: payload.uid,
-                    receiver: receiver
-                },
-                {
-                    sender: receiver,
-                    receiver: payload.uid
-                }
-                ]
-            }, {
-                $set: { isRead: 1 }
-            })
+
             console.log('get history controller [receiver:', receiver);
             res.json({
                 status: 200,
@@ -76,6 +63,8 @@ module.exports.mssageHistory = async (req, res, next) => {
         console.log(err);
     }
 };
+
+
 
 //创建group，即聊天室,分群聊聊天室和单聊聊天室，先检测数据库有没有该聊天室
 module.exports.createGroup = async (req, res, next) => {
@@ -230,6 +219,45 @@ module.exports.notifyList = async (req, res, next) => {
 
     }
 };
+
+//当客户端滚动至底部后更新状态为已读
+module.exports.updateMessageStatus = async (req, res, next) => {
+    const { receiver } = req.body;
+
+    try {
+        const { uid } = req.payload;
+        if (uid) {
+            //更新状态为已读
+            await Message.updateMany({
+                $or: [{
+                    sender: uid,
+                    receiver: receiver
+                },
+                {
+                    sender: receiver,
+                    receiver: uid
+                }
+                ]
+            }, {
+                $set: { isRead: 1 }
+            });
+
+            res.json({
+                status: 200,
+                message: 'Successfully update message status|更新状态为已读成功'
+            });
+        } else {
+            res.json({
+                status: 401,
+                message: 'No user found|没有找到用户'
+            });
+        }
+
+    } catch (err) {
+        console.log(err);
+    }
+
+}
 
 //翻译文本
 module.exports.tanslate = async (req, res, next) => {

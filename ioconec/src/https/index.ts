@@ -102,3 +102,19 @@ export const createGroup = (name: string, isOne2One: number) => {
 
   )
 };
+
+/**
+ * 更新已读状态
+ * /updateMessageStatus
+ * post
+ * receiver:string
+*/
+export const updateMessageStatus = (receiver: string) => {
+  return instance.post('/updateMessageStatus', { receiver },
+    {
+      headers: {
+        "Content-Type": "application/json;charset=UTF-8"
+      }
+    }
+  )
+}
