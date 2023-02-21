@@ -285,21 +285,39 @@ const scrollToBottom = () => {
 }
 //聊天界面容器触底方法
 
-//检测dom节点是否在窗口底部
-const isElementAtBottom = (element: HTMLElement) => {
+//检测dom节点是否在容器可视窗口内
+const getVisibleHeight = (element: HTMLElement) => {
 
+    
+    let containerRect = chatBody.value.getBoundingClientRect();
+    let eleRect = element.getBoundingClientRect();
+    
 }
-
 
 // 当聊天界面滚动
 const chatBodyScroll = () => {
-    console.log('console.log(chatBody.value.clientHeight):',chatBody.value.scrollTop);
+    console.log("chatBody.value.clientHeight:", chatBody.value.clientHeight);
+    // chatBody.value.scrollHeight, chatBody.value.offsetTop
+
+    let currentScrollTop = chatBody.value.scrollTop;
+    let currentScrollHeight = chatBody.value.scrollHeight;
+    let currentClientHeight = chatBody.value.clientHeight;
+
+    console.log('分割线------------------');
 
     for (let i = 0; i < message.list.length; i++) {
         const dom: any = document.getElementById(message.list[i]._id);
-        console.log(dom.offsetTop);
-        
-        
+
+
+        /**
+         * 如果节点的偏移高度小于当前滚动条，并且当前滚动容器没有触底，则该节点已经已读并且被顶上去看不见了,
+         * 如果顶上去看不到的，再加上当前可视窗口内的，就是所有已读的了
+         * */
+
+        if (dom.offsetTop < currentScrollTop && currentScrollTop + currentClientHeight < currentScrollHeight) {
+            console.log("dom.offsetTop", dom.offsetTop, dom.id);
+        }
+
 
     }
 
@@ -318,14 +336,9 @@ const chatBodyScroll = () => {
         */
         if (message.list[message.list.length - 1].sender != userStore.userInfo._id && message.list[message.list.length - 1].isRead != 1) {
             postUpdateMessageStatus();
-
         }
-
-
     }
     //当页面向下滚动
-
-
 }
 // 当聊天界面滚动
 
@@ -373,6 +386,7 @@ onMounted(() => {
     let token = sessionStorage.getItem('token') == null ? '' : JSON.parse(sessionStorage.getItem('token')!);
     console.log('token::::', token.token);
     getNotifyList();
+
 });
 
 </script>
@@ -514,7 +528,7 @@ onMounted(() => {
 
 
                 <!-- 对话流 -->
-                <div class="chat-body p-4 flex-1 overflow-y-scroll" ref="chatBody" @scroll="chatBodyScroll">
+                <div class="chat-body p-4 flex-1 overflow-y-scroll" ref="chatBody" @scroll="chatBodyScroll" id="chatBody-container">
                     
                     <!-- 别人文本消息 others -->
                     <template v-for="item, index in message.list" :key="index">
@@ -543,9 +557,9 @@ onMounted(() => {
                                 <!-- 翻译文本 有动效-->
 
                                 <!-- 翻译文本 无动效-->
-                                <div v-if="(userStore.userInfo._id == item.receiver && item.contentType == 1)" class="flex items-center group mb-4 -mt-1">
+                                <!-- <div v-if="(userStore.userInfo._id == item.receiver && item.contentType == 1)" class="flex items-center group mb-4 -mt-1">
                                     <p class="px-6 py-3 rounded-b-full rounded-r-full bg-gray-800 max-w-xs lg:max-w-md text-gray-200">translated text here,no animation</p>
-                                </div>
+                                </div> -->
                                 <!-- 翻译文本 无动效-->
 
                                 <!-- 文本信息 -->
