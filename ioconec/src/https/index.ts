@@ -118,3 +118,19 @@ export const updateMessageStatus = (receiver: string) => {
     }
   )
 }
+
+/**
+ * updateMessageByIds
+ * /updateMessageByIds
+ * post
+ * ids:string[]
+*/
+export const updateMessageByIds = (ids: string[]) => {
+  return instance.post('/updateMessageByIds', { ids },
+    {
+      headers: {
+        "Content-Type": "application/json;charset=UTF-8"
+      }
+    }
+  )
+}

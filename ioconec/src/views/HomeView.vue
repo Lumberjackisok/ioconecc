@@ -6,7 +6,7 @@ export default {
 </script>
 <script setup lang="ts">
 import { ref, reactive, onMounted, inject } from 'vue';
-import { search, getHistory, notifyList, createGroup, updateMessageStatus } from '../https/index';
+import { search, getHistory, notifyList, createGroup, updateMessageStatus, updateMessageByIds } from '../https/index';
 import { useUserStore } from '@/stores/modules/user';
 import { baseURL } from '../privateKeys/index';
 import io from 'socket.io-client';
@@ -100,7 +100,6 @@ const onSearch = async () => {
                 totalPages: datas.totalPages
             }
 
-
         }
     } catch (e) {
         console.log(e);
@@ -186,8 +185,6 @@ const goChat = async (receiverInfo: any, isNewChat: number) => {
 
                 }
 
-
-
             }
 
             getNotifyList();
@@ -213,6 +210,7 @@ const onSend = async () => {
             contentType: 1,//1:文本，2：图片,暂时默认写死1，后期再根据实际做判断
             content: roomView.content,//发送的信息内容
             receiverLanguage: roomView.receiverInfo.language,//对方的母语
+            senderLanguage: userStore.userInfo.language,//自己的母语
             isRead: 0,//0：未读，1：已读,默认未读
             groupId: roomView.groupId,
         };
@@ -264,7 +262,6 @@ const postUpdateMessageStatus = async () => {
     try {
         let datas: any = await updateMessageStatus(roomView.receiverInfo._id);
         console.log('更新已读状态：', datas);
-
     } catch (err) {
         console.log(err);
     }
@@ -285,41 +282,46 @@ const scrollToBottom = () => {
 }
 //聊天界面容器触底方法
 
-//检测dom节点是否在容器可视窗口内
-const getVisibleHeight = (element: HTMLElement) => {
-
-    
-    let containerRect = chatBody.value.getBoundingClientRect();
-    let eleRect = element.getBoundingClientRect();
-    
-}
 
 // 当聊天界面滚动
+//用于监测停止滚动的定时器
+let isScrolling: any = null;
 const chatBodyScroll = () => {
-    console.log("chatBody.value.clientHeight:", chatBody.value.clientHeight);
-    // chatBody.value.scrollHeight, chatBody.value.offsetTop
-
+    // console.log("chatBody.value:", chatBody.value);
+    // console.log('分割线------------------');
     let currentScrollTop = chatBody.value.scrollTop;
-    let currentScrollHeight = chatBody.value.scrollHeight;
     let currentClientHeight = chatBody.value.clientHeight;
-
-    console.log('分割线------------------');
-
+    let idsArray: any = [];
     for (let i = 0; i < message.list.length; i++) {
-        const dom: any = document.getElementById(message.list[i]._id);
-
-
         /**
-         * 如果节点的偏移高度小于当前滚动条，并且当前滚动容器没有触底，则该节点已经已读并且被顶上去看不见了,
-         * 如果顶上去看不到的，再加上当前可视窗口内的，就是所有已读的了
+         * 如果dom.offsetTop - dom.clientHeight<=currentScrollTop + currentClientHeight，
+         * 说明这些dom为可视范围内的和已经被顶上去的，即都是用户已读的，
+         * 当停止滚动后，将这些id装到数组内,将对应的message为未读的id过滤出来，
+         * 最后将过滤出来的id发送给服务器，服务器操作数据库将这些id更新为已读状态
          * */
-
-        if (dom.offsetTop < currentScrollTop && currentScrollTop + currentClientHeight < currentScrollHeight) {
-            console.log("dom.offsetTop", dom.offsetTop, dom.id);
+        const dom: any = document.getElementById(message.list[i]._id);
+        if ((dom.offsetTop - dom.clientHeight) <= (currentScrollTop + currentClientHeight)) {
+            // console.log("所有已读的dom:", dom.id, dom);
+            idsArray.push(dom.id);
+            clearTimeout(isScrolling);
+            isScrolling = setTimeout(async () => {
+                //更新接口.....
+                let finalyNotreadIds = message.list.filter((item: any, index: number) => { return item.isRead == 0 && item._id == idsArray[index] }).map((item: any) => { return item._id });
+                //全部被用户已读的id，但存在数据库里有一部分已经更新了的情况，
+                //需要将这些已经更新了的id过滤出来，最后将过滤出来的id发送给服务器，服务器操作数据库将这些id更新为已读状态
+                // console.log('停止滚动了,全部被用户已读的id', idsArray);
+                // console.log('停止滚动了,全部被用户已读的id中数据库还没更新的id', finalyNotreadIds);
+                if (finalyNotreadIds.length > 0) {
+                    let datas: any = await updateMessageByIds(finalyNotreadIds);
+                    //更新未读的计数
+                    roomView.notReadCount = roomView.notReadCount <= 0 ? 0 : roomView.notReadCount - finalyNotreadIds.length;
+                    roomView.showToBottomButton = roomView.notReadCount > 0 ? true : false;
+                    // console.log('按id更新状态', datas);
+                }
+            }, 1000);
         }
-
-
     }
+
 
     //如果滚动触底，隐藏按钮，计数归零
     if (chatBody.value.scrollTop + chatBody.value.clientHeight >= chatBody.value.scrollHeight - 2) {
@@ -338,7 +340,7 @@ const chatBodyScroll = () => {
             postUpdateMessageStatus();
         }
     }
-    //当页面向下滚动
+
 }
 // 当聊天界面滚动
 

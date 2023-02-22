@@ -103,31 +103,28 @@ io.on('connection', async(socket) => {
         console.log('receiverDatas接收者数据:', receiverDatas);
         console.log('receiverDatas接收者数据socketId:', receiverDatas.socketId);
 
-        // 从数据库拿发送者的信息，获取发送者的language，方便与接收者的作比较，如何两者的不同才进行翻译
-        const senderDatas = await User.findById({ _id: sendData.sender });
+        // 从数据库拿发送者的信息，获取发送者的language，方便与接收者的作比较，如果两者的不同才进行翻译
+        // const senderDatas = await User.findById({ _id: sendData.sender });
 
         //如果对方的language和自己的language不一样才进行翻译
-        if (receiverDatas.language != senderDatas.language) {
-            //使用openai的davinci-003进行翻译
-            const translatedContent = await openAITranslate(sendData.content, sendData.receiverLanguage);
-            console.log('原文：', sendData.content);
-            console.log('翻译文本：', translatedContent);
-
-
-            //写入数据库
-            const message = new Message({
-                sender: sendData.sender,
-                receiver: sendData.receiver,
-                contentType: sendData.contentType,
-                content: sendData.content,
-                translatedContent: translatedContent,
-                // group: group._id,
-                group: sendData.groupId,
-                isRead: 0,
-                updateAt: new Date()
-            });
-
+        if (sendData.receiverLanguage != sendData.senderLanguage) {
             try {
+                //使用openai的davinci-003进行翻译
+                const translatedContent = await openAITranslate(sendData.content, sendData.receiverLanguage);
+                console.log('原文：', sendData.content);
+                console.log('翻译文本：', translatedContent);
+                //写入数据库
+                const message = new Message({
+                    sender: sendData.sender,
+                    receiver: sendData.receiver,
+                    contentType: sendData.contentType,
+                    content: sendData.content,
+                    translatedContent: translatedContent,
+                    // group: group._id,
+                    group: sendData.groupId,
+                    isRead: 0,
+                    updateAt: new Date()
+                });
                 await message.save();
                 // return message;
                 // 发送成功后再查找数据库把最新的聊天记录返回过去
@@ -141,9 +138,9 @@ io.on('connection', async(socket) => {
                     }]
                 });
                 //把写入的聊天记录和发送者id返回过去,方便客户端更新状态
-
-
                 fn(messages);
+
+                //如果对方在线就直接发送过去
                 if (receiverDatas.socketId != '') {
                     socket.to(receiverDatas.socketId).emit('message', {
                         message: 'go get update',
@@ -156,19 +153,18 @@ io.on('connection', async(socket) => {
             }
 
         } else {
-
-            //写入数据库
-            const message2 = new Message({
-                sender: sendData.sender,
-                receiver: sendData.receiver,
-                contentType: sendData.contentType,
-                content: sendData.content,
-                group: sendData.groupId,
-                isRead: 0,
-                updateAt: new Date()
-            });
-
             try {
+                //写入数据库
+                const message2 = new Message({
+                    sender: sendData.sender,
+                    receiver: sendData.receiver,
+                    contentType: sendData.contentType,
+                    content: sendData.content,
+                    group: sendData.groupId,
+                    // translatedContent: '',
+                    isRead: 0,
+                    updateAt: new Date()
+                });
                 await message2.save();
                 // return message;
                 // 发送成功后再查找数据库把最新的聊天记录返回过去
@@ -181,22 +177,19 @@ io.on('connection', async(socket) => {
                         receiver: sendData.sender
                     }]
                 });
-                fn(messages2);
+
+                fn(messages2); //成功后在客户端执行的回调，方便用来传值
+
                 if (receiverDatas.socketId != '') {
                     socket.to(receiverDatas.socketId).emit('message', {
                         message: 'go get update',
                         data: messages2
                     })
                 }
-
             } catch (err) {
                 console.error(err);
             }
-
         }
-
-
-
     });
 
     //监听客户端的disconnect事件，断开连接后更新数据库的isOnline状态为0,socketId为空字符串
