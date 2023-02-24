@@ -95,7 +95,7 @@ const onGetStart = () => {
 }
 
 onMounted(() => {
-  
+
 });
 </script>
 
@@ -103,7 +103,7 @@ onMounted(() => {
  <div>
   
 <div v-if="state.isSigned" class="relative">
-    <div class="inset-0 z-10 w-full h-screen overflow-y-auto">
+    <!-- <div class="inset-0 z-10 w-full h-screen overflow-y-auto">
         <div class="absolute inset-0 w-full h-full bg-gray-500 opacity-75">
         </div>
         <div class="flex items-end justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
@@ -118,9 +118,7 @@ onMounted(() => {
                                     <span class="block">
                                   Oh hi mark
                                     </span>
-                                    <!-- <span class="block text-indigo-500">
-                                      you did it.
-                                    </span> -->
+                                    
                                 </h2>
                                 <div class="lg:mt-0 lg:flex-shrink-0">
                                     <div class="mt-12 inline-flex rounded-md shadow">
@@ -135,7 +133,17 @@ onMounted(() => {
                 </div>
             </div>
         </div>
+    </div> -->
+
+    <div className="hero min-h-screen bg-base-200">
+  <div className="hero-content text-center">
+    <div className="max-w-md">
+      <h1 className="text-5xl font-bold">Oh hi mark</h1>
+      <p className="py-6">I did not hit her</p>
+      <button @click="onGetStart" className="btn btn-primary">I did not</button>
     </div>
+  </div>
+</div>
 </div>
 
 <!-- 错误提示 -->
@@ -160,7 +168,7 @@ onMounted(() => {
   <div className="hero-content flex-col lg:flex-row-reverse">
     <div className="text-center lg:text-left">
       <h1 className="text-5xl font-bold">{{ state.isLoginNow ? 'Login now!' : 'Sign up now!' }}</h1>
-      <p className="py-6">welcome to ioconec,motherfucker.</p>
+      <p className="py-6">welcome to ioconec,madafruka.</p>
     </div>
     <!-- login card |登录卡片 -->
     <div v-if="state.isLoginNow == true" className="card flex-shrink-0 w-full max-w-sm shadow-2xl bg-base-100">
@@ -248,6 +256,4 @@ onMounted(() => {
 </div>
 </template>
 
-<style scoped>
-
-</style>
+<style scoped></style>

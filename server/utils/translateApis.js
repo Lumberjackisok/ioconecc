@@ -8,16 +8,16 @@ const configuration = new Configuration({
 const openai = new OpenAIApi(configuration);
 
 //API of openai openai的api
-module.exports.openAITranslate = async(text, language) => {
+module.exports.openAITranslate = async (text, language) => {
 
-    let prefix = `Please translate the following text into simple and understandable ${language}:`;
-    text = prefix + text;
-
-    console.log(text);
+    // let prefix = `Please translate the following text into simple and understandable ${language}:`;
+    // text = prefix + text;
+    let finalyText = `Please translate the following text into easy-to-understand ${language}:"${text}"`;
+    console.log(finalyText);
     try {
         const completion = await openai.createCompletion({
             "model": "text-davinci-003",
-            "prompt": `${text}`,
+            "prompt": `${finalyText}`,
             // "temperature": 1,
             // "top_p": 1,
             // "n": 1,
@@ -39,6 +39,6 @@ module.exports.openAITranslate = async(text, language) => {
 };
 
 //API of deepl
-module.exports.deeplTranslate = async(text, language) => {
+module.exports.deeplTranslate = async (text, language) => {
 
 };
