@@ -47,12 +47,10 @@ socket.on('message', async (data: any) => {
     if (data.message === 'go get update') {
         getNotifyList();//获取最新的信息预览通知
         message.list.push(data.data[data.data.length - 1]);
-        scrollToBottom();
-
-        //收到消息后，如果聊天窗口是打开的，并且收到的消息的sender=当前获取到的receiver，则触底
-        // if (roomView.receiverInfo && roomView.close == 0 && roomView.receiverInfo._id == data.data[data.data.length - 1]) {
-        //     scrollToBottom();
-        // }
+        //收到消息后，当页面本身就是触底的时，才再次触发触底
+        if (chatBody.value.scrollTop + chatBody.value.clientHeight >= chatBody.value.scrollHeight - 2) {
+            scrollToBottom();
+        }
     }
 });
 
