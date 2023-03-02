@@ -6,29 +6,29 @@ const { JWT_SECRET } = require('../config/index');
 const User = require('../models/user');
 
 //ignore
-module.exports.sendMessage = async(req, res, next) => {
-    const { sender, receiver, contentType, content } = req.body;
+// module.exports.sendMessage = async(req, res, next) => {
+//     const { sender, receiver, contentType, content } = req.body;
 
-    const token = req.headers['authorization'].replace('Bearer ', '');
+//     const token = req.headers['authorization'].replace('Bearer ', '');
 
-    //验证token,拿到用户id和language
-    const payload = await verifyToken(token, JWT_SECRET);
+//     //验证token,拿到用户id和language
+//     const payload = await verifyToken(token, JWT_SECRET);
 
-    let translateText = await openAITranslate(content, payload.language);
+//     let translateText = await openAITranslate(content, payload.language);
 
-    console.log('translateText', translateText);
+//     console.log('translateText', translateText);
 
-    res.json({
-        status: 200,
-        message: '消息发送成功',
-        data: {
-            sender: sender,
-            receiver: receiver,
-            content: content,
-            translateText: translateText,
-        }
-    });
-};
+//     res.json({
+//         status: 200,
+//         message: '消息发送成功',
+//         data: {
+//             sender: sender,
+//             receiver: receiver,
+//             content: content,
+//             translateText: translateText,
+//         }
+//     });
+// };
 
 //获取用户与用户之间的聊天记录
 module.exports.mssageHistory = async(req, res, next) => {
@@ -62,9 +62,6 @@ module.exports.mssageHistory = async(req, res, next) => {
         console.log(err);
     }
 };
-
-
-
 //创建group，即聊天室,分群聊聊天室和单聊聊天室，先检测数据库有没有该聊天室
 module.exports.createGroup = async(req, res, next) => {
     /**
@@ -89,6 +86,7 @@ module.exports.createGroup = async(req, res, next) => {
 
         const membersIds = name.split(" ");
 
+        //如果都没有，为true，则创建group
         const finalChecke = (groupCheck1 == null && groupCheck2 == null) ? true : false;
 
         if (payload.uid && finalChecke) {
@@ -107,7 +105,6 @@ module.exports.createGroup = async(req, res, next) => {
                     group: group1,
                     message: 'one2one Successful|单聊创建成功',
                 });
-
             } else {
                 const group2 = new Group({
                     name: name,
@@ -131,11 +128,9 @@ module.exports.createGroup = async(req, res, next) => {
                 group: groupCheck1 == null ? groupCheck2 : groupCheck1
             });
         }
-
     } catch (err) {
         console.log(err);
     }
-
 };
 
 //获取消息预览列表

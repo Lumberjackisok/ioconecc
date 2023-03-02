@@ -141,7 +141,7 @@ const goChat = async (receiverInfo: any, isNewChat: number) => {
 
                 //获取未读消息的条数
                 const notReadCount = datas.datas.message.filter((item: any) => {
-                    return item.isRead === 0;
+                    return item.isRead == 0;
                 }).length;
 
                 console.log('未读消息数量：', notReadCount);
