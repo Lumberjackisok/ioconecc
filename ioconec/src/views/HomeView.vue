@@ -5,7 +5,7 @@ export default {
 }
 </script>
 <script setup lang="ts">
-import { ref, reactive, onMounted, inject } from 'vue';
+import { ref, reactive, onMounted } from 'vue';
 import { search, getHistory, notifyList, createGroup, updateMessageStatus, updateMessageByIds } from '../https/index';
 import { useUserStore } from '@/stores/modules/user';
 import { baseURL } from '../privateKeys/index';
@@ -119,6 +119,7 @@ const goChat = async (receiverInfo: any, isNewChat: number) => {
         try {
             const name = userStore.userInfo._id + " " + receiverInfo._id;
             const datas2: any = await createGroup(name, 1);
+            myGetHistory(receiverInfo._id);
             if (datas2.status === 200) {
                 console.log('创建聊天室：', datas2);
                 roomView.groupId = datas2.group._id;

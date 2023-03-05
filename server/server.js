@@ -4,19 +4,18 @@ const { verifyToken } = require('./utils/token');
 const { openAITranslate } = require('./utils/translateApis');
 const User = require('./models/user');
 const Message = require('./models/message');
-const Group = require('./models/group');
+// const Group = require('./models/group');
 
 
 //连接mongoDB
 const mongoose = require('mongoose');
-const { json } = require("express");
+// const { json } = require("express");
 mongoose.set('strictQuery', false); //解决控制台警告提示
 
 
 
 const connectDb = () => {
     mongoose.connect('mongodb://localhost:27017/ioconec', {
-
         useNewUrlParser: true,
         useUnifiedTopology: true
     }, (err) => {
@@ -60,7 +59,7 @@ const io = require('socket.io')(httpServer, {
 });
 
 //接收客户端的连接，并获取传过来的token
-io.use(async(socket, next) => {
+io.use(async (socket, next) => {
     try {
         if (socket.handshake.query.token) {
             const token = JSON.parse(socket.handshake.query.token)['token'];
@@ -77,7 +76,7 @@ io.use(async(socket, next) => {
 });
 
 //连接到客户端的socket，并监听自定义事件
-io.on('connection', async(socket) => {
+io.on('connection', async (socket) => {
     console.log('连接到客户端的socket');
     try {
         //每次重连socket.id都会变，更新数据库里的socketId
@@ -93,7 +92,7 @@ io.on('connection', async(socket) => {
     }
 
     //监听客户端的message发消息事件
-    socket.on('message', async(val, fn) => {
+    socket.on('message', async (val, fn) => {
         console.log('message数据:', val.sendData);
 
         const { sendData } = val;
@@ -193,7 +192,7 @@ io.on('connection', async(socket) => {
     });
 
     //监听客户端的disconnect事件，断开连接后更新数据库的isOnline状态为0,socketId为空字符串
-    socket.on('disconnect', async() => {
+    socket.on('disconnect', async () => {
         const res = await User.updateOne({ _id: socket.uid }, {
             $set: {
                 isOnline: 0,
