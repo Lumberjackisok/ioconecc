@@ -1,5 +1,8 @@
-const { Configuration, OpenAIApi } = require("openai");
 const { openAIKeys } = require('../privateKeys/index');
+const axios = require('axios');
+const { toChatML, get_message } = require("gpt-to-chatgpt");
+
+const { Configuration, OpenAIApi } = require("openai");
 
 const configuration = new Configuration({
     apiKey: openAIKeys //apiKey的K是大写
@@ -7,17 +10,22 @@ const configuration = new Configuration({
 
 const openai = new OpenAIApi(configuration);
 
+
+
 //API of openai openai的api
-module.exports.openAITranslate = async(text, language) => {
-    let finalyText = `Please translate the following text into easy-to-understand ${language}:"${text}"`;
+module.exports.openAITranslate = async (text, language) => {
+    const finalyText = `Please translate the following text into easy-to-understand ${language}:"${text}"`;
     console.log(finalyText);
+    // let datas = chatGTP(finalyText);
+    // return datas;
     try {
         const completion = await openai.createChatCompletion({
             model: "gpt-3.5-turbo",
-            messages: [{ role: "user", content: finalyText }]
+            messages: toChatML(finalyText)
         });
+        console.log('completion:', get_message(completion.data));
 
-        console.log("completion:", completion.data.choices[0].message.content.trim());
+        // console.log("completion:", completion.data.choices[0].message.content.trim());
         if (completion.data.choices[0].message) {
             return completion.data.choices[0].message.content.trim();
         }

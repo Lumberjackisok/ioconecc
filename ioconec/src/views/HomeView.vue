@@ -191,6 +191,7 @@ const goChat = async (receiverInfo: any, isNewChat: number) => {
 const onSend = async () => {
     console.log("roomView.receiverInfo:", roomView.receiverInfo);
     if (roomView.content != '') {
+        
         const sendData = {
             // isGroup: 0,//是否群组，默认否,如果是单聊就服务端处理翻译
             sender: userStore.userInfo._id,//自己的id

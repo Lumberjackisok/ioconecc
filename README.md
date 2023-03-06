@@ -8,3 +8,15 @@ Notion address:https://snapdragon-flier-b46.notion.site/ioconec-dca5cefe9ea64242
 
 youtube presentation address：https://www.youtube.com/watch?v=wb2s36XxlaU
 
+
+ ------------------------------------------------------------------------------------------------------
+
+```
+// '@ioconecc/ioconec/privateKeys/index.ts'
+export const baseURL = "http://www.your server address.com";
+
+// '@ioconecc/server/privateKeys/index.js'
+module.exports.baseURL = "http://www.your server address.com";
+module.exports.openAIKeys = "your apiKey";
+module.exports.JWT_SECRET = "whatever you want";
+```
