@@ -11,7 +11,7 @@ youtube presentation address：https://www.youtube.com/watch?v=wb2s36XxlaU
 
  ------------------------------------------------------------------------------------------------------
 
-```
+```javascript
 // '@ioconecc/ioconec/privateKeys/index.ts'
 export const baseURL = "http://www.your server address.com";
 
