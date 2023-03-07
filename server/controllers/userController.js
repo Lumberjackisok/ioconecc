@@ -27,6 +27,12 @@ module.exports.login = async (req, res, next) => {
             message: "email is not exist.|邮箱不存在"
         })
     }
+    if (user.isOnline) {
+        return res.json({
+            message: "user is online.|用户已经在线"
+        })
+    }
+
 
 
     // update login time

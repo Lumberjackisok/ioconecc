@@ -55,7 +55,8 @@ const io = require('socket.io')(httpServer, {
     cors: {
         origin: true,
         methods: ['GET', 'POST'],
-        credentials: true
+        credentials: true,
+        // blacklist: ['https://api.openai.com/v1/chat/completions'],
     }
 });
 

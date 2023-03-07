@@ -11,7 +11,14 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 //跨域解决
-app.use(cors());
+const corsOptions = {
+    origin: true,
+    credentials: true,
+    methods: ['GET', 'POST'],
+    // blacklist: ['https://api.openai.com/v1/chat/completions'],
+};
+app.use(cors(corsOptions));
+
 
 //路由
 app.use(userRouter);
