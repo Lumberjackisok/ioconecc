@@ -138,18 +138,60 @@ module.exports.notifyList = async (req, res, next) => {
 
     const { payload } = req;
     if (payload.uid) {
+        // try {
+        //     const groups = await Group.find({
+        //         members: { $in: [payload.uid] },
+        //         isOne2One: 1
+        //     });
+
+        //     const friendIds = groups
+        //         .filter(group => group.members.length === 2)
+        //         .flatMap(group => group.members.filter(member => member !== payload.uid));
+
+        //     const friends = await User.find({ _id: { $in: friendIds } }, { password: 0 });
+
+        //     const messages = await Promise.all(groups.map(group => {
+        //         return Message.findOne({ group: group._id })
+        //             .select('content sender receiver updateAt isRead translatedContent group')
+        //             .sort({ updateAt: -1 })
+        //             .lean();
+        //     }));
+
+        //     const notifys = messages.map(message => message || {});
+
+        //     const friendData = friends.map((friend, index) => ({
+        //         ...friend.toObject(),
+        //         notify: notifys[index]
+        //     }));
+        //     console.log("friendData:", friendData);
+        //     console.log("notifys:", notifys);
+
+        //     return res.json({
+        //         status: 200,
+        //         friends: friendData,
+        //         notifys: notifys
+        //     });
+        // } catch (err) {
+        //     console.log(err);
+        //     return res.status(500).json({ message: 'Failed to get notification list' });
+        // }
+
+
         try {
             /**
-             *  找到group列表，
+             *  找到对应的单聊的group列表，
              * 通过group列表：1.利用每个group的members找到每个group里的非自己的那个用户
              *               2.找到每个group关联的message的最新一条mesaage作为消息预览
+             * 
+             * 通过uid查找到所有的group
              */
 
             const group = await Group.find({
-                name: { $regex: payload.uid, $options: 'i' },
+                members: { $in: [payload.uid] },
                 isOne2One: 1
             });
 
+            console.log("group:", group);
             //用来装所有取得过联系的好友的id
             let frendsId = [];
 
@@ -264,12 +306,17 @@ module.exports.updateMessageByIds = async (req, res, next) => {
     try {
         const { uid } = req.payload;
         if (uid) {
-            await Message.updateMany({ _id: { $in: ids } }, { $set: { isRead: 1 } });
-
+            // for (let i = 0; i < ids.length; i++) {
+            //     await Message.updateOne({ _id: ids[i] }, { isRead: 1 })
+            // }
+            //条件更新，$ne为不等于，not equal
+            await Message.updateMany({ _id: { $in: ids }, isRead: { $ne: 1 } }, { $set: { isRead: 1 } });
+            const messages = await Message.find({ _id: { $in: ids } });
             console.log('更新成功');
             res.json({
                 status: 200,
-                message: 'Successfully update message status|更新状态为已读成功'
+                message: 'Successfully update message status|更新状态为已读成功',
+                messages: messages
             });
 
         } else {

@@ -44,13 +44,29 @@ socket.on('disconnect', () => {
 
 socket.on('message', async (data: any) => {
     console.log('服务器监听到message,转发过来的数据:', data.data[data.data.length - 1]);
-    if (data.message === 'go get update') {
-        getNotifyList();//获取最新的信息预览通知
-        message.list.push(data.data[data.data.length - 1]);
+
+
+    if (data.message === 'go get update' && data.data[data.data.length - 1].sender == roomView.receiverInfo._id && roomView.close == 0) {
+        /**
+         * 如果用户打开的是与发送来消息的人的聊天窗口，才执行以下操作
+         * sender==roomView.receiverInfo._id
+        */
+        //同时向数据库更新已读状态
+        await updateMessageByIds(data.data[data.data.length - 1]._id);
+
+        //更新历史消息列表
+        await myGetHistory(data.data[data.data.length - 1].sender);
+        //push进去
+        // message.list.push(data.data[data.data.length - 1]);
+
+        await getNotifyList();//获取最新的信息预览通知
+        console.log("roomView.receiverInfo._id:", roomView.receiverInfo._id);
         //收到消息后，当页面本身就是触底的时，才再次触发触底
         if (chatBody.value.scrollTop + chatBody.value.clientHeight >= chatBody.value.scrollHeight - 2) {
-            scrollToBottom();
+            scrollToBottom(10);
         }
+    } else {
+        getNotifyList();//获取最新的信息预览通知
     }
 });
 
@@ -135,47 +151,53 @@ const goChat = async (receiverInfo: any, isNewChat: number) => {
             roomView.groupId = roomView.receiverInfo.notify.group;//对应的groupId更新过去
 
             //先获取历史记录
-            let datas: any = await getHistory(roomView.receiverInfo._id);
-            if (datas.status === 200) {
-                message.list = datas.datas.message;
-                console.log('跳转到聊天界面的聊天历史记录:', datas);
+            // let datas: any = await getHistory(roomView.receiverInfo._id);
+            // if (datas.status === 200) {
+            // message.list = datas.datas.message;
+            // console.log('跳转到聊天界面的聊天历史记录:', datas);
 
-                //获取未读消息的条数
-                const notReadCount = datas.datas.message.filter((item: any) => {
-                    return item.isRead == 0;
-                }).length;
+            await myGetHistory(roomView.receiverInfo._id);
 
-                console.log('未读消息数量：', notReadCount);
+            //获取未读消息的条数
+            const notReadCount = message.list.filter((item: any) => {
+                return item.isRead == 0;
+            }).length;
+            roomView.notReadCount = notReadCount.length;
+            console.log('未读消息数量：', notReadCount);
 
-                //如果最新的一条消息的接收者不是自己的id就直接触底
-                if (datas.datas.message[datas.datas.message.length - 1].receiver != userStore.userInfo._id) {
-                    roomView.showToBottomButton = false;
-                    roomView.notReadCount = 0;
-                    scrollToBottom();
-                } else if (notReadCount == 0) {//如果最新的消息的接收者是自己，但notReadCount=0，同样直接触底
-                    scrollToBottom();
-                } else {//如果最新的消息的接收者是自己,并且notReadCount！=0，就scroll到最前面那条未读消息的位置
-                    roomView.notReadCount = notReadCount;
-                    roomView.showToBottomButton = notReadCount == 0 ? false : true;
+            //如果最新的一条消息的接收者不是自己的id就直接触底
+            if (message.list[message.list.length - 1].receiver != userStore.userInfo._id) {
+                roomView.showToBottomButton = false;
+                roomView.notReadCount = 0;
+                scrollToBottom(message.list.length);
+            } else if (notReadCount == 0) {
+                //如果最新的消息的接收者是自己，但notReadCount=0，同样直接触底
+                scrollToBottom(message.list.length);
+            } else {
+                //如果最新的消息的接收者是自己,并且notReadCount！=0，就scroll到最前面那条未读消息的位置
+                roomView.notReadCount = notReadCount;
+                roomView.showToBottomButton = notReadCount == 0 ? false : true;
 
-                    //按时间戳降序排序，再过滤掉已读的，取第一个,就是对应的消息的dom的id
-                    const scrollToRead = message.list.sort((a: any, b: any) => {
-                        return a.updateAt - b.updateAt
-                    }).filter((item: any) => { return item.isRead == 0 })[0]._id;
+                //按时间戳降序排序，再过滤掉已读的，取第一个,就是对应的消息的dom的id,
+                //因为在渲染的时候就把id动态绑定上去了，
+                //也就是说：message._id = DOM的id
+                const scrollToRead = message.list.sort((a: any, b: any) => {
+                    return a.updateAt - b.updateAt
+                }).filter((item: any) => { return item.isRead == 0 })[0]._id;
 
-                    console.log("scrollToRead:", scrollToRead);
+                console.log("scrollToRead:", scrollToRead);
 
-                    //获取dom，在setTimeout内的目的是让dom加载完毕后再去获取
-                    setTimeout(() => {
-                        let firstNotReadDom: any = document.getElementById(scrollToRead);
-                        console.log('firstNotReaDdom:', firstNotReadDom);
-                        if (firstNotReadDom) {
-                            //直接使用scrollIntoView()方法
-                            firstNotReadDom.scrollIntoView();
-                        }
-                    }, 10);
-                }
+                //获取dom，在setTimeout内的目的是让dom加载完毕后再去获取
+                setTimeout(() => {
+                    let firstNotReadDom: any = document.getElementById(scrollToRead);
+                    console.log('firstNotReaDdom:', firstNotReadDom);
+                    if (firstNotReadDom) {
+                        //直接使用scrollIntoView()方法
+                        firstNotReadDom.scrollIntoView();
+                    }
+                }, 10);
             }
+            // }
 
             getNotifyList();
 
@@ -191,7 +213,7 @@ const goChat = async (receiverInfo: any, isNewChat: number) => {
 const onSend = async () => {
     console.log("roomView.receiverInfo:", roomView.receiverInfo);
     if (roomView.content != '') {
-        
+
         const sendData = {
             // isGroup: 0,//是否群组，默认否,如果是单聊就服务端处理翻译
             sender: userStore.userInfo._id,//自己的id
@@ -206,7 +228,7 @@ const onSend = async () => {
 
         message.list.push(sendData);
         roomView.content = '';
-        scrollToBottom();
+        scrollToBottom(message.list.length);
         //发送消息给服务端
         socket.emit('message', { sendData }, (data: any) => {
             //发送成功的回调，可以写查找历史记录的业务，比如message.list = data;
@@ -259,16 +281,34 @@ const postUpdateMessageStatus = async () => {
 
 //聊天界面容器触底方法
 const chatBody: any = ref(null);
-const scrollToBottom = () => {
-    const timer = setInterval(() => {
-        chatBody.value.scrollTop += 30;
-        if (chatBody.value.scrollTop + chatBody.value.clientHeight >=
-            chatBody.value.scrollHeight - 2) {
-            clearInterval(timer);
-            roomView.showToBottomButton = false;
-            roomView.notReadCount = 0;
-        }
-    }, 11)
+const scrollToBottom = (messageLength: number = 10) => {
+    /*
+    如果消息长度大于20,过渡效果猛烈点，不要让页面滚动得太慢了
+    */
+    if (messageLength < 20) {
+        postUpdateMessageStatus();
+        const timer = setInterval(() => {
+            chatBody.value.scrollTop += 30;
+            if (chatBody.value.scrollTop + chatBody.value.clientHeight >=
+                chatBody.value.scrollHeight - 2) {
+                clearInterval(timer);
+                roomView.showToBottomButton = false;
+                roomView.notReadCount = 0;
+            }
+        }, 11)
+    } else {
+        chatBody.value.scrollTop = chatBody.value.scrollHeight;
+        // const timer = setInterval(() => {
+        //     chatBody.value.scrollTop += 250;
+        //     if (chatBody.value.scrollTop + chatBody.value.clientHeight >=
+        //         chatBody.value.scrollHeight - 2) {
+        //         clearInterval(timer);
+        //         roomView.showToBottomButton = false;
+        //         roomView.notReadCount = 0;
+        //     }
+        // }, 11)
+    }
+
 }
 //聊天界面容器触底方法
 
@@ -283,23 +323,30 @@ const chatBodyScroll = () => {
             roomView.showToBottomButton = true;
         }
 
+        /**
+            * 如果最后一条消息是自己发送的，即最后一条消息的sender=自己的id，
+            * 即自己是发送者，
+            * 以及最后一条消息的已读状态为1,
+            * 则不更新消息状态为已读,
+            * 但是如果是自己发送的，并且不更新，那么计数和向下按钮也会为自己显示，
+            * 所以，在点击消息预览后，如果最新的一条消息的接收者不是自己的id就直接触底，具体在gochat()方法内
+           */
+        //    if (message.list[message.list.length - 1].sender != userStore.userInfo._id && message.list[message.list.length - 1].isRead == 0) {
+        //         scrollToBottom();
+
+        //     }
+
         //如果滚动触底，隐藏按钮，计数归零  
         if (chatBody.value.scrollTop + chatBody.value.clientHeight >= chatBody.value.scrollHeight - 2) {
             roomView.showToBottomButton = false;
             roomView.notReadCount = 0;
 
-            /**
-             * 如果最后一条消息是自己发送的，即最后一条消息的sender=自己的id，
-             * 即自己是发送者，
-             * 以及最后一条消息的已读状态为1,
-             * 则不更新消息状态为已读,
-             * 但是如果是自己发送的，并且不更新，那么计数和向下按钮也会为自己显示，
-             * 所以，在点击消息预览后，如果最新的一条消息的接收者不是自己的id就直接触底，具体在gochat()方法内
-            */
-            if (message.list[message.list.length - 1].sender != userStore.userInfo._id && message.list[message.list.length - 1].isRead == 0) {
-                // postUpdateMessageStatus();
-                scrollToBottom();
+            //避免不必要的重复请求
+            if (message.list[message.list.length - 2].isRead == 0) {
+                postUpdateMessageStatus();
             }
+
+
         } else {
             let currentScrollTop = chatBody.value.scrollTop;
             let currentClientHeight = chatBody.value.clientHeight;
@@ -320,7 +367,12 @@ const chatBodyScroll = () => {
                 const dom: any = document.getElementById(message.list[i]._id);
                 if ((dom.offsetTop - dom.clientHeight) <= (currentScrollTop + currentClientHeight)) {
                     // console.log("所有已读的dom:", dom.id, dom);
-                    idsArray.push(dom.id);
+                    let isInside = idsArray.includes(dom.id);
+                    console.log('是否存在？', isInside);
+                    if (!isInside) {
+                        idsArray.push(dom.id);
+                    }
+
                     clearTimeout(isScrolling);
                     isScrolling = setTimeout(async () => {
                         //全部被用户已读的id，但存在数据库里有一部分已经更新了的情况，
@@ -329,12 +381,14 @@ const chatBodyScroll = () => {
                         console.log('停止滚动了,全部被用户已读的id', idsArray);
                         console.log('停止滚动了,全部被用户已读的id中数据库还没更新的id', finalyNotreadIds);
 
-                        if (finalyNotreadIds.length > 0 && roomView.notReadCount != 0) {
+                        if (finalyNotreadIds.length > 0) {
+
                             let datas: any = await updateMessageByIds(finalyNotreadIds);
+
                             roomView.showToBottomButton = roomView.notReadCount <= 0 && chatBody.value.scrollTop + chatBody.value.clientHeight >= chatBody.value.scrollHeight - 2 ? false : true;
                             console.log('按id更新状态', datas);
                         }
-                    }, 1000);
+                    }, 10);
                 }
 
             }
@@ -454,7 +508,7 @@ onMounted(() => {
                                 <p class="ml-2 whitespace-no-wrap">{{ notifyFormatter(item.notify.updateAt) }}</p>
                             </div>
                         </div>
-                        <div v-if="userStore.userInfo._id != item.notify.sender && item.notify.isRead == 0 && !roomView.showToBottomButton" class="bg-blue-700 w-3 h-3 rounded-full flex flex-shrink-0 hidden md:block group-hover:block"></div>
+                        <div v-if="userStore.userInfo._id != item.notify.sender && item.notify.isRead == 0" class="bg-blue-700 w-3 h-3 rounded-full flex flex-shrink-0 hidden md:block group-hover:block"></div>
                     </div>
                 <!-- 用户名、最新收到的信息、时间 -->
                     
@@ -585,7 +639,7 @@ onMounted(() => {
 
 
                     <!-- 触底按钮和未读计数 -->
-                    <div v-if="roomView.showToBottomButton" @click="scrollToBottom" class="fixed bottom-20 right-8 flex flex-col items-center">
+                    <div v-if="roomView.showToBottomButton" @click="scrollToBottom()" class="fixed bottom-20 right-8 flex flex-col items-center">
                        <div v-if="roomView.notReadCount > 0" class="flex justify-center absolute -top-2">{{ roomView.notReadCount }}</div>
                         <button className="btn btn-circle">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 transform rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>

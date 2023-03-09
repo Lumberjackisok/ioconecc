@@ -71,6 +71,13 @@ io.use(async (socket, next) => {
             //把uid保存到socket里面，方便用return !!io.sockets.connected[userId]判断在线用户
             socket.uid = payload.uid;
             socket.language = payload.language;
+
+            await User.updateOne({ _id: payload.uid }, {
+                $set: {
+                    isOnline: 1,
+                    socketId: socket.id
+                }
+            });
             console.log(payload);
             next();
         }
@@ -80,18 +87,29 @@ io.use(async (socket, next) => {
 //连接到客户端的socket，并监听自定义事件
 io.on('connection', async (socket) => {
     console.log('连接到客户端的socket');
-    try {
-        //每次重连socket.id都会变，更新数据库里的socketId
-        const res = await User.updateOne({ _id: socket.uid }, {
+    console.log('socket.Id:', socket.id);
+    // try {
+    //     //每次重连socket.id都会变，更新数据库里的socketId
+    //     await User.updateOne({ _id: socket.uid }, {
+    //         $set: {
+    //             isOnline: 1,
+    //             socketId: socket.id
+    //         }
+    //     });
+
+    // } catch (err) {
+    //     console.log(err);
+    // }
+
+    //监听客户端的disconnect事件，断开连接后更新数据库的isOnline状态为0,socketId为空字符串
+    socket.on('disconnect', async () => {
+        await User.updateOne({ _id: socket.uid }, {
             $set: {
-                isOnline: 1,
-                socketId: socket.id
+                isOnline: 0,
+                socketId: ""
             }
-        });
-        console.log('socket.Id:', socket.id);
-    } catch (err) {
-        console.log(err);
-    }
+        })
+    });
 
     //监听客户端的message发消息事件
     socket.on('message', async (val, fn) => {
@@ -193,13 +211,5 @@ io.on('connection', async (socket) => {
         }
     });
 
-    //监听客户端的disconnect事件，断开连接后更新数据库的isOnline状态为0,socketId为空字符串
-    socket.on('disconnect', async () => {
-        const res = await User.updateOne({ _id: socket.uid }, {
-            $set: {
-                isOnline: 0,
-                socketId: ""
-            }
-        })
-    });
+
 });

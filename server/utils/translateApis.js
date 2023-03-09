@@ -42,12 +42,12 @@ const chatGTP = async (input) => {
                 return output
             })
             .catch((error) => {
-                console.log(error, 'error in calling chat completion');
+                console.log(error);
             });
-        console.log('CHATGTP response:', completion);
+        console.log('completion:', completion);
         return completion
     } catch (e) {
-        console.log(e, ' error in the callChatGTP function');
+        console.log(e);
     }
 };
 
