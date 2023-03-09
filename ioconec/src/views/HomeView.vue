@@ -10,7 +10,8 @@ import { search, getHistory, notifyList, createGroup, updateMessageStatus, updat
 import { useUserStore } from '@/stores/modules/user';
 import { baseURL } from '../privateKeys/index';
 import io from 'socket.io-client';
-import { notifyFormatter } from '../utils/time'
+import { notifyFormatter } from '../utils/time';
+import { updateNotify } from '../utils/tinyTools';
 import TypingText from '@/components/TypingText.vue';
 import loding from '../components/Loading.vue';
 
@@ -46,7 +47,7 @@ socket.on('message', async (data: any) => {
     console.log('服务器监听到message,转发过来的数据:', data.data[data.data.length - 1]);
 
 
-    if (data.message === 'go get update' && data.data[data.data.length - 1].sender == roomView.receiverInfo._id && roomView.close == 0) {
+    if (data.message === 'go get update' && data.data[data.data.length - 1].sender == roomView.receiverInfo?._id && roomView.close == 0) {
         /**
          * 如果用户打开的是与发送来消息的人的聊天窗口，才执行以下操作
          * sender==roomView.receiverInfo._id
@@ -78,7 +79,7 @@ const state: any = reactive({
     searchPage: 1,
     searchDatas: null,
     isSeachOnload: false,
-    notifyList: [],
+    notifyList: {},
     blueCircleIsShow: 1,//控制蓝色圈圈是否显示
 });
 
@@ -112,7 +113,6 @@ const onSearch = async () => {
                 total: datas.total,
                 totalPages: datas.totalPages
             }
-
         }
     } catch (e) {
         console.log(e);
@@ -146,10 +146,22 @@ const goChat = async (receiverInfo: any, isNewChat: number) => {
         }
     } else {//处理非新创建聊天室的情况
         try {
-            console.log('非新创建聊天', roomView.receiverInfo);
+            console.log('非新创建聊天', roomView.receiverInfo.notify);
 
             roomView.groupId = roomView.receiverInfo.notify.group;//对应的groupId更新过去
 
+            //拿到对应的蓝点的index，通过index去修改state.notifyList.frends.isRead的值
+            let targetIndex = -1;
+            state.notifyList.frends.forEach((item: any, index: number) => {
+                if (item.notify._id == roomView.receiverInfo.notify._id) {
+                    targetIndex = index;
+                }
+
+            })
+            console.log("index:", targetIndex);
+            if (targetIndex != -1) {
+                state.notifyList.frends[targetIndex].notify.isRead = 1;
+            }
             //先获取历史记录
             // let datas: any = await getHistory(roomView.receiverInfo._id);
             // if (datas.status === 200) {
@@ -199,7 +211,7 @@ const goChat = async (receiverInfo: any, isNewChat: number) => {
             }
             // }
 
-            getNotifyList();
+            // getNotifyList();
 
         } catch (err) {
             console.log(err);
@@ -228,7 +240,7 @@ const onSend = async () => {
 
         message.list.push(sendData);
         roomView.content = '';
-        scrollToBottom(message.list.length);
+        scrollToBottom(10);
         //发送消息给服务端
         socket.emit('message', { sendData }, (data: any) => {
             //发送成功的回调，可以写查找历史记录的业务，比如message.list = data;
@@ -378,8 +390,8 @@ const chatBodyScroll = () => {
                         //全部被用户已读的id，但存在数据库里有一部分已经更新了的情况，
                         //需要将这些已经更新了的id过滤出来，最后将过滤出来的id发送给服务器，服务器操作数据库将这些id更新为已读状态
                         let finalyNotreadIds = message.list.filter((item: any, index: number) => { return item.isRead == 0 && item._id == idsArray[index] }).map((item: any) => { return item._id });
-                        console.log('停止滚动了,全部被用户已读的id', idsArray);
-                        console.log('停止滚动了,全部被用户已读的id中数据库还没更新的id', finalyNotreadIds);
+                        // console.log('停止滚动了,全部被用户已读的id', idsArray);
+                        // console.log('停止滚动了,全部被用户已读的id中数据库还没更新的id', finalyNotreadIds);
 
                         if (finalyNotreadIds.length > 0) {
 
