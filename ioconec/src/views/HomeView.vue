@@ -53,19 +53,22 @@ socket.on('message', async (data: any) => {
          * sender==roomView.receiverInfo._id
         */
         //同时向数据库更新已读状态
-        await updateMessageByIds(data.data[data.data.length - 1]._id);
+        // await updateMessageByIds(data.data[data.data.length - 1]._id);
+        if (chatBody.value.scrollTop + chatBody.value.clientHeight >= chatBody.value.scrollHeight - 4) {
+            //push进去，实现触底效果
+            message.list.push(data.data[data.data.length - 1]);
+            scrollToBottom(10);
+        }
 
         //更新历史消息列表
         await myGetHistory(data.data[data.data.length - 1].sender);
-        //push进去
-        // message.list.push(data.data[data.data.length - 1]);
+
 
         await getNotifyList();//获取最新的信息预览通知
-        console.log("roomView.receiverInfo._id:", roomView.receiverInfo._id);
+        // console.log("roomView.receiverInfo._id:", roomView.receiverInfo._id);
         //收到消息后，当页面本身就是触底的时，才再次触发触底
-        if (chatBody.value.scrollTop + chatBody.value.clientHeight >= chatBody.value.scrollHeight - 2) {
-            scrollToBottom(10);
-        }
+
+
     } else {
         getNotifyList();//获取最新的信息预览通知
     }
@@ -168,7 +171,7 @@ const goChat = async (receiverInfo: any, isNewChat: number) => {
             // message.list = datas.datas.message;
             // console.log('跳转到聊天界面的聊天历史记录:', datas);
 
-            await myGetHistory(roomView.receiverInfo._id);
+            await myGetHistory(roomView.receiverInfo._id);//获取聊天历史
 
             //获取未读消息的条数
             const notReadCount = message.list.filter((item: any) => {
@@ -294,11 +297,30 @@ const postUpdateMessageStatus = async () => {
 //聊天界面容器触底方法
 const chatBody: any = ref(null);
 const scrollToBottom = (messageLength: number = 10) => {
+
+    //拿到对应的蓝点的index，通过index去修改state.notifyList.frends.isRead的值
+    try {
+        let targetIndex = -1;
+        state.notifyList.frends.forEach((item: any, index: number) => {
+            if (item.notify._id == roomView.receiverInfo.notify._id) {
+                targetIndex = index;
+            }
+
+        })
+        // console.log("index:", targetIndex);
+        if (targetIndex != -1) {
+            state.notifyList.frends[targetIndex].notify.isRead = 1;
+            postUpdateMessageStatus();
+        }
+    } catch (err) {
+        console.log(err);
+    }
+
     /*
     如果消息长度大于20,过渡效果猛烈点，不要让页面滚动得太慢了
     */
     if (messageLength < 20) {
-        postUpdateMessageStatus();
+        // postUpdateMessageStatus();
         const timer = setInterval(() => {
             chatBody.value.scrollTop += 30;
             if (chatBody.value.scrollTop + chatBody.value.clientHeight >=
@@ -380,7 +402,7 @@ const chatBodyScroll = () => {
                 if ((dom.offsetTop - dom.clientHeight) <= (currentScrollTop + currentClientHeight)) {
                     // console.log("所有已读的dom:", dom.id, dom);
                     let isInside = idsArray.includes(dom.id);
-                    console.log('是否存在？', isInside);
+                    // console.log('是否存在？', isInside);
                     if (!isInside) {
                         idsArray.push(dom.id);
                     }
@@ -393,7 +415,7 @@ const chatBodyScroll = () => {
                         // console.log('停止滚动了,全部被用户已读的id', idsArray);
                         // console.log('停止滚动了,全部被用户已读的id中数据库还没更新的id', finalyNotreadIds);
 
-                        if (finalyNotreadIds.length > 0) {
+                        if (finalyNotreadIds.length > 1) {
 
                             let datas: any = await updateMessageByIds(finalyNotreadIds);
 
