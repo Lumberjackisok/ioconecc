@@ -11,7 +11,7 @@ import { useUserStore } from '@/stores/modules/user';
 import { baseURL } from '../privateKeys/index';
 import io from 'socket.io-client';
 import { notifyFormatter } from '../utils/time';
-import { updateNotify } from '../utils/tinyTools';
+
 import TypingText from '@/components/TypingText.vue';
 import loding from '../components/Loading.vue';
 
@@ -70,7 +70,7 @@ socket.on('message', async (data: any) => {
 
 
     } else {
-        getNotifyList();//获取最新的信息预览通知
+        await getNotifyList();//获取最新的信息预览通知
     }
 });
 
@@ -154,51 +154,48 @@ const goChat = async (receiverInfo: any, isNewChat: number) => {
             roomView.groupId = roomView.receiverInfo.notify.group;//对应的groupId更新过去
 
             //拿到对应的蓝点的index，通过index去修改state.notifyList.frends.isRead的值
-            let targetIndex = -1;
-            state.notifyList.frends.forEach((item: any, index: number) => {
-                if (item.notify._id == roomView.receiverInfo.notify._id) {
-                    targetIndex = index;
-                }
+            // let targetIndex = -1;
+            // state.notifyList.frends.forEach((item: any, index: number) => {
+            //     if (item.notify._id == roomView.receiverInfo.notify._id) {
+            //         targetIndex = index;
+            //     }
 
-            })
-            console.log("index:", targetIndex);
-            if (targetIndex != -1) {
-                state.notifyList.frends[targetIndex].notify.isRead = 1;
-            }
-            //先获取历史记录
-            // let datas: any = await getHistory(roomView.receiverInfo._id);
-            // if (datas.status === 200) {
-            // message.list = datas.datas.message;
-            // console.log('跳转到聊天界面的聊天历史记录:', datas);
+            // })
+            // console.log("index:", targetIndex);
+            // if (targetIndex != -1) {
+            //     state.notifyList.frends[targetIndex].notify.isRead = 1;
+            //     // postUpdateMessageStatus();
+            // }
+
 
             await myGetHistory(roomView.receiverInfo._id);//获取聊天历史
+
 
             //获取未读消息的条数
             const notReadCount = message.list.filter((item: any) => {
                 return item.isRead == 0;
-            }).length;
-            roomView.notReadCount = notReadCount.length;
-            console.log('未读消息数量：', notReadCount);
+            });
+            // roomView.notReadCount = notReadCount.length;
+            console.log('未读消息：', notReadCount);
 
             //如果最新的一条消息的接收者不是自己的id就直接触底
             if (message.list[message.list.length - 1].receiver != userStore.userInfo._id) {
                 roomView.showToBottomButton = false;
-                roomView.notReadCount = 0;
+                // roomView.notReadCount = 0;
                 scrollToBottom(message.list.length);
-            } else if (notReadCount == 0) {
-                //如果最新的消息的接收者是自己，但notReadCount=0，同样直接触底
+            } else if (notReadCount.length == 0) {
+                //如果最新的消息的接收者是自己，但notReadCount.length=0，同样直接触底
                 scrollToBottom(message.list.length);
             } else {
                 //如果最新的消息的接收者是自己,并且notReadCount！=0，就scroll到最前面那条未读消息的位置
-                roomView.notReadCount = notReadCount;
-                roomView.showToBottomButton = notReadCount == 0 ? false : true;
+                // roomView.notReadCount = notReadCount.length;
+                roomView.showToBottomButton = notReadCount.length == 0 ? false : true;
 
                 //按时间戳降序排序，再过滤掉已读的，取第一个,就是对应的消息的dom的id,
                 //因为在渲染的时候就把id动态绑定上去了，
                 //也就是说：message._id = DOM的id
-                const scrollToRead = message.list.sort((a: any, b: any) => {
-                    return a.updateAt - b.updateAt
-                }).filter((item: any) => { return item.isRead == 0 })[0]._id;
+                const scrollToRead = message.list.filter((item: any) => { return item.isRead == 0 })[0]._id;
+                console.log("message.list.filter((item: any) => { return item.isRead == 0 }):", message.list.filter((item: any) => { return item.isRead == 0 }));
 
                 console.log("scrollToRead:", scrollToRead);
 
@@ -211,6 +208,8 @@ const goChat = async (receiverInfo: any, isNewChat: number) => {
                         firstNotReadDom.scrollIntoView();
                     }
                 }, 10);
+
+
             }
             // }
 
@@ -277,6 +276,9 @@ const getNotifyList = async () => {
         if (datas.status == 200) {
             console.log('notify list:', datas);
             state.notifyList = datas;
+            state.notifyList.frends.sort((a: any, b: any) => {
+                return b.notify.updateAt - a.notify.updateAt
+            })
         }
 
     } catch (err) {
@@ -299,22 +301,22 @@ const chatBody: any = ref(null);
 const scrollToBottom = (messageLength: number = 10) => {
 
     //拿到对应的蓝点的index，通过index去修改state.notifyList.frends.isRead的值
-    try {
-        let targetIndex = -1;
-        state.notifyList.frends.forEach((item: any, index: number) => {
-            if (item.notify._id == roomView.receiverInfo.notify._id) {
-                targetIndex = index;
-            }
+    // try {
+    //     let targetIndex = -1;
+    //     state.notifyList.frends.forEach((item: any, index: number) => {
+    //         if (item.notify._id == roomView.receiverInfo.notify._id) {
+    //             targetIndex = index;
+    //         }
 
-        })
-        // console.log("index:", targetIndex);
-        if (targetIndex != -1) {
-            state.notifyList.frends[targetIndex].notify.isRead = 1;
-            postUpdateMessageStatus();
-        }
-    } catch (err) {
-        console.log(err);
-    }
+    //     })
+    //     // console.log("index:", targetIndex);
+    //     if (targetIndex != -1) {
+    //         state.notifyList.frends[targetIndex].notify.isRead = 1;
+    //         postUpdateMessageStatus();
+    //     }
+    // } catch (err) {
+    //     console.log(err);
+    // }
 
     /*
     如果消息长度大于20,过渡效果猛烈点，不要让页面滚动得太慢了
@@ -327,20 +329,12 @@ const scrollToBottom = (messageLength: number = 10) => {
                 chatBody.value.scrollHeight - 2) {
                 clearInterval(timer);
                 roomView.showToBottomButton = false;
-                roomView.notReadCount = 0;
+                // roomView.notReadCount = 0;
             }
         }, 11)
     } else {
         chatBody.value.scrollTop = chatBody.value.scrollHeight;
-        // const timer = setInterval(() => {
-        //     chatBody.value.scrollTop += 250;
-        //     if (chatBody.value.scrollTop + chatBody.value.clientHeight >=
-        //         chatBody.value.scrollHeight - 2) {
-        //         clearInterval(timer);
-        //         roomView.showToBottomButton = false;
-        //         roomView.notReadCount = 0;
-        //     }
-        // }, 11)
+
     }
 
 }
@@ -352,6 +346,8 @@ const scrollToBottom = (messageLength: number = 10) => {
 let isScrolling: any = null;
 const chatBodyScroll = () => {
     try {
+        let currentScrollTop = chatBody.value.scrollTop;
+        let currentClientHeight = chatBody.value.clientHeight;
         //如果往上滚动，显示触底按钮
         if (chatBody.value.scrollTop + chatBody.value.clientHeight < chatBody.value.scrollHeight - 2) {
             roomView.showToBottomButton = true;
@@ -373,23 +369,22 @@ const chatBodyScroll = () => {
         //如果滚动触底，隐藏按钮，计数归零  
         if (chatBody.value.scrollTop + chatBody.value.clientHeight >= chatBody.value.scrollHeight - 2) {
             roomView.showToBottomButton = false;
-            roomView.notReadCount = 0;
+            // roomView.notReadCount = 0;
 
             //避免不必要的重复请求
-            if (message.list[message.list.length - 2].isRead == 0) {
-                postUpdateMessageStatus();
-            }
+            // if (message.list[message.list.length - 1].isRead == 0) {
+            //     postUpdateMessageStatus();
+            // }
 
 
         } else {
-            let currentScrollTop = chatBody.value.scrollTop;
-            let currentClientHeight = chatBody.value.clientHeight;
-            //更新未读的计数
-            if (roomView.notReadCount <= 0) {
-                roomView.notReadCount = 0;
-            }
 
-            roomView.notReadCount--;
+            //更新未读的计数
+            // if (roomView.notReadCount <= 0) {
+            //     roomView.notReadCount = 0;
+            // }
+
+            // roomView.notReadCount--;
             let idsArray: any = [];
             for (let i = 0; i < message.list.length; i++) {
                 /**
@@ -415,11 +410,12 @@ const chatBodyScroll = () => {
                         // console.log('停止滚动了,全部被用户已读的id', idsArray);
                         // console.log('停止滚动了,全部被用户已读的id中数据库还没更新的id', finalyNotreadIds);
 
-                        if (finalyNotreadIds.length > 1) {
+                        if (finalyNotreadIds.length >= 1) {
 
                             let datas: any = await updateMessageByIds(finalyNotreadIds);
+                            await getNotifyList();
 
-                            roomView.showToBottomButton = roomView.notReadCount <= 0 && chatBody.value.scrollTop + chatBody.value.clientHeight >= chatBody.value.scrollHeight - 2 ? false : true;
+                            // roomView.showToBottomButton = roomView.notReadCount <= 0 && chatBody.value.scrollTop + chatBody.value.clientHeight >= chatBody.value.scrollHeight - 2 ? false : true;
                             console.log('按id更新状态', datas);
                         }
                     }, 10);
@@ -674,7 +670,7 @@ onMounted(() => {
 
                     <!-- 触底按钮和未读计数 -->
                     <div v-if="roomView.showToBottomButton" @click="scrollToBottom()" class="fixed bottom-20 right-8 flex flex-col items-center">
-                       <div v-if="roomView.notReadCount > 0" class="flex justify-center absolute -top-2">{{ roomView.notReadCount }}</div>
+                       <div  class="flex justify-center absolute -top-2"></div>
                         <button className="btn btn-circle">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 transform rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
                         </button>

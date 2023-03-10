@@ -31,20 +31,20 @@ const User = require('../models/user');
 // };
 
 //获取用户与用户之间的聊天记录
-module.exports.mssageHistory = async(req, res, next) => {
+module.exports.mssageHistory = async (req, res, next) => {
     const { receiver } = req.query;
     try {
         const { payload } = req;
         if (payload.uid) {
             const messages = await Message.find({
                 $or: [{
-                        sender: payload.uid,
-                        receiver: receiver
-                    },
-                    {
-                        sender: receiver,
-                        receiver: payload.uid
-                    }
+                    sender: payload.uid,
+                    receiver: receiver
+                },
+                {
+                    sender: receiver,
+                    receiver: payload.uid
+                }
                 ]
             });
 
@@ -63,7 +63,7 @@ module.exports.mssageHistory = async(req, res, next) => {
     }
 };
 //创建group，即聊天室,分群聊聊天室和单聊聊天室，先检测数据库有没有该聊天室
-module.exports.createGroup = async(req, res, next) => {
+module.exports.createGroup = async (req, res, next) => {
     /**
      * 创建group前先检查有无group
      */
@@ -134,7 +134,7 @@ module.exports.createGroup = async(req, res, next) => {
 };
 
 //获取消息预览列表
-module.exports.notifyList = async(req, res, next) => {
+module.exports.notifyList = async (req, res, next) => {
 
     const { payload } = req;
     if (payload.uid) {
@@ -190,8 +190,8 @@ module.exports.notifyList = async(req, res, next) => {
             for (let i = 0; i < group.length; i++) {
                 let notify = await Message.find({ group: { $in: group[i]._id } })
                     .select("content sender receiver updateAt isRead translatedContent group")
-                    .sort({ updateAt: -1 }); //-1：降序，1：升序
-
+                    .sort({ updateAt: -1 }).limit(1); //-1：降序，1：升序。limit限制
+                console.log("notify[0]:", notify[0]);
                 notifys.push(notify[0] == undefined ? {} : notify[0].toObject());
             }
 
@@ -220,7 +220,7 @@ module.exports.notifyList = async(req, res, next) => {
 };
 
 //当客户端滚动至底部后更新状态为已读
-module.exports.updateMessageStatus = async(req, res, next) => {
+module.exports.updateMessageStatus = async (req, res, next) => {
     const { receiver } = req.body;
 
     try {
@@ -229,13 +229,13 @@ module.exports.updateMessageStatus = async(req, res, next) => {
             //更新状态为已读
             await Message.updateMany({
                 $or: [{
-                        sender: uid,
-                        receiver: receiver
-                    },
-                    {
-                        sender: receiver,
-                        receiver: uid
-                    }
+                    sender: uid,
+                    receiver: receiver
+                },
+                {
+                    sender: receiver,
+                    receiver: uid
+                }
                 ]
             }, {
                 $set: { isRead: 1 }
@@ -263,7 +263,7 @@ module.exports.updateMessageStatus = async(req, res, next) => {
 }
 
 //更新指定数组的id的message的isRead状态
-module.exports.updateMessageByIds = async(req, res, next) => {
+module.exports.updateMessageByIds = async (req, res, next) => {
     const { ids } = req.body;
 
     try {
@@ -273,7 +273,7 @@ module.exports.updateMessageByIds = async(req, res, next) => {
             //     await Message.updateOne({ _id: ids[i] }, { isRead: 1 })
             // }
             //条件更新，$ne为不等于，not equal
-            await Message.updateMany({ _id: { $in: ids }, isRead: { $ne: 1 } }, { $set: { isRead: 1 } });
+            await Message.updateMany({ _id: { $in: ids } }, { $set: { isRead: 1 } });
             const messages = await Message.find({ _id: { $in: ids } });
             console.log('更新成功');
             res.json({
@@ -298,11 +298,11 @@ module.exports.updateMessageByIds = async(req, res, next) => {
 }
 
 //测试
-module.exports.test = async(req, res, next) => {
+module.exports.test = async (req, res, next) => {
     try {
         res.json({
             status: 200,
             message: '测试测试测试测试'
         })
-    } catch (err) {}
+    } catch (err) { }
 }
