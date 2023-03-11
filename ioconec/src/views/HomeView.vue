@@ -409,9 +409,9 @@ const chatBodyScroll = () => {
                         let finalyNotreadIds = message.list.filter((item: any, index: number) => { return item.isRead == 0 && item._id == idsArray[index] }).map((item: any) => { return item._id });
                         // console.log('停止滚动了,全部被用户已读的id', idsArray);
                         // console.log('停止滚动了,全部被用户已读的id中数据库还没更新的id', finalyNotreadIds);
-
+                        // let notifyIndex =
                         if (finalyNotreadIds.length >= 1) {
-
+                            // state.notifyList.frends[i].notify.isRead == 0
                             let datas: any = await updateMessageByIds(finalyNotreadIds);
                             await getNotifyList();
 
@@ -538,7 +538,7 @@ onMounted(() => {
                                 <p class="ml-2 whitespace-no-wrap">{{ notifyFormatter(item.notify.updateAt) }}</p>
                             </div>
                         </div>
-                        <div v-if="userStore.userInfo._id != item.notify.sender && item.notify.isRead == 0" class="bg-blue-700 w-3 h-3 rounded-full flex flex-shrink-0 hidden md:block group-hover:block">{{ item.notify.notreadCount }}</div>
+                        <div v-if="userStore.userInfo._id != item.notify.sender && item.notify.isRead == 0" class="bg-blue-700 w-6 h-6 rounded-full inline-flex text-center items-center justify-center flex-shrink-0 hidden md:block group-hover:block">{{ item.notify.notreadCount }}</div>
                     </div>
                 <!-- 用户名、最新收到的信息、时间 -->
                     
