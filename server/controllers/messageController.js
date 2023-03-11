@@ -190,9 +190,13 @@ module.exports.notifyList = async (req, res, next) => {
             for (let i = 0; i < group.length; i++) {
                 let notify = await Message.find({ group: { $in: group[i]._id } })
                     .select("content sender receiver updateAt isRead translatedContent group")
-                    .sort({ updateAt: -1 }).limit(1); //-1：降序，1：升序。limit限制
+                    .sort({ updateAt: -1 }); //-1：降序，1：升序
                 console.log("notify[0]:", notify[0]);
-                notifys.push(notify[0] == undefined ? {} : notify[0].toObject());
+
+                let notifyTemp = notify[0] ? notify[0].toObject() : {};
+                //未读条数
+                notifyTemp['notreadCount'] = notify.filter((item) => { return item.isRead == 0 }).length;
+                notifys.push(notifyTemp);
             }
 
             //用循环将最新message和frendsData以一一对应的形式捆捆绑
