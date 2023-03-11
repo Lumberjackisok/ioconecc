@@ -32,10 +32,6 @@ export const languagesList = [
     disabled: false
   },
   {
-    language: 'Japanese',
-    disabled: false
-  },
-  {
     language: 'Korean',
     disabled: false
   },
