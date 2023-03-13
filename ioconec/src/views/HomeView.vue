@@ -95,6 +95,7 @@ const roomView: any = reactive({
     close: 0,//控制显示聊天室画面
     showToBottomButton: false,//控制是否显示点击触底按钮和未读消息计数
     notReadCount: 0,//未读数量
+    index: 0,//当前聊天窗口对应的notify循环列表的索引
 });
 
 
@@ -124,9 +125,11 @@ const onSearch = async () => {
 //点击搜索
 
 //点击搜索列表或聊天列表后，开启单聊聊天室
-const goChat = async (receiverInfo: any, isNewChat: number) => {
+//三个参数：对方信息，是否为新创建聊天室，notify卡片循环列表对应的下标
+const goChat = async (receiverInfo: any, isNewChat: number, index: number) => {
     roomView.close = 0;//是否关闭聊天窗口
     roomView.receiverInfo = receiverInfo;
+    roomView.index = index;//拿到notify卡片循环列表对应的下标，用于滚动事件中判断是否需要触底更新的引路人
     console.log('点击后对应的用户信息:', receiverInfo);
 
     /**
@@ -409,8 +412,13 @@ const chatBodyScroll = () => {
                         let finalyNotreadIds = message.list.filter((item: any, index: number) => { return item.isRead == 0 && item._id == idsArray[index] }).map((item: any) => { return item._id });
                         // console.log('停止滚动了,全部被用户已读的id', idsArray);
                         // console.log('停止滚动了,全部被用户已读的id中数据库还没更新的id', finalyNotreadIds);
-                        // let notifyIndex =
-                        if (finalyNotreadIds.length >= 1) {
+
+                        /**
+                         * 找到对应的notifyList.notify.isRead，如果isRead为0才更新
+                         * 
+                        */
+                        let notifyIndex = roomView.index;
+                        if (finalyNotreadIds.length >= 1 && state.notifyList.frends[notifyIndex].notify.isRead == 0) {
                             // state.notifyList.frends[i].notify.isRead == 0
                             let datas: any = await updateMessageByIds(finalyNotreadIds);
                             await getNotifyList();
@@ -517,7 +525,7 @@ onMounted(() => {
                   <!-- 消息预览列表 -->
                 <div v-if="state.searchContent == ''" class="contacts p-2 flex-1 overflow-y-scroll">
                   
-                    <div v-for="item, index in state.notifyList.frends" :key="index" @click="goChat(item, 0)" class="flex justify-between items-center p-3 hover:bg-gray-800 rounded-lg relative">
+                    <div v-for="item, index in state.notifyList.frends" :key="index" @click="goChat(item, 0, index)" class="flex justify-between items-center p-3 hover:bg-gray-800 rounded-lg relative">
                          <!-- 头像 -->
                         <div class="w-16 h-16 relative flex flex-shrink-0">
                             <img class="shadow-md rounded-full w-full h-full object-cover"
@@ -548,7 +556,7 @@ onMounted(() => {
 
                   <!-- 搜索用户列表 -->
                 <div v-if="state.searchContent != ''" class="contacts p-2 flex-1 overflow-y-scroll" ref="searchListBody" @scroll="loadMoreSearch">
-                    <div v-for="item in state.searchList" :key="item" @click="goChat(item, 1)" class="flex justify-between items-center p-3 hover:bg-gray-800 rounded-lg relative">
+                    <div v-for="item, index in state.searchList" :key="item" @click="goChat(item, 1, index)" class="flex justify-between items-center p-3 hover:bg-gray-800 rounded-lg relative">
                         <div class="w-16 h-16 relative flex flex-shrink-0">
                             <img class="shadow-md rounded-full w-full h-full object-cover"
                                  :src="item.avatar"
