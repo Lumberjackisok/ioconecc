@@ -488,7 +488,7 @@ onMounted(() => {
     
         <main class="flex-grow flex flex-row min-h-0">
             
-            <section class="flex flex-col flex-none overflow-auto w-24 hover:w-64 group lg:max-w-sm md:w-2/5 transition-all duration-300 ease-in-out">
+            <section class="flex flex-col flex-none overflow-auto w-24 hover:w-64 group lg:max-w-sm md:w-2/5 max-w-xs transition-all duration-300 ease-in-out">
                 <div class="header p-4 flex flex-row justify-between items-center flex-none ">
                     <div @click="roomView.close = 1" class="w-10 h-10 relative flex flex-shrink-0 cursor-pointer" style="">
                         <img class="rounded-5 w-full h-full object-cover" alt=""
