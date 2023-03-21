@@ -11,6 +11,7 @@ import { useUserStore } from '@/stores/modules/user';
 import { baseURL } from '../privateKeys/index';
 import io from 'socket.io-client';
 import { notifyFormatter } from '../utils/time';
+import { firstStartIndex } from '../utils/handleMessageList';
 
 import TypingText from '@/components/TypingText.vue';
 import loding from '../components/Loading.vue';
@@ -127,6 +128,8 @@ const onSearch = async () => {
 //点击搜索列表或聊天列表后，开启单聊聊天室
 //三个参数：对方信息，是否为新创建聊天室，notify卡片循环列表对应的下标
 const goChat = async (receiverInfo: any, isNewChat: number, index: number) => {
+
+
     roomView.close = 0;//是否关闭聊天窗口
     roomView.receiverInfo = receiverInfo;
     roomView.index = index;//拿到notify卡片循环列表对应的下标，用于滚动事件中判断是否需要触底更新的引路人
@@ -141,7 +144,7 @@ const goChat = async (receiverInfo: any, isNewChat: number, index: number) => {
         try {
             const name = userStore.userInfo._id + " " + receiverInfo._id;
             const datas2: any = await createGroup(name, 1);
-            myGetHistory(receiverInfo._id);
+            await myGetHistory(receiverInfo._id);
             if (datas2.status === 200) {
                 console.log('创建聊天室：', datas2);
                 roomView.groupId = datas2.group._id;
@@ -156,23 +159,10 @@ const goChat = async (receiverInfo: any, isNewChat: number, index: number) => {
 
             roomView.groupId = roomView.receiverInfo.notify.group;//对应的groupId更新过去
 
-            //拿到对应的蓝点的index，通过index去修改state.notifyList.frends.isRead的值
-            // let targetIndex = -1;
-            // state.notifyList.frends.forEach((item: any, index: number) => {
-            //     if (item.notify._id == roomView.receiverInfo.notify._id) {
-            //         targetIndex = index;
-            //     }
-
-            // })
-            // console.log("index:", targetIndex);
-            // if (targetIndex != -1) {
-            //     state.notifyList.frends[targetIndex].notify.isRead = 1;
-            //     // postUpdateMessageStatus();
-            // }
-
 
             await myGetHistory(roomView.receiverInfo._id);//获取聊天历史
-
+            virtualMessage.startIndex = firstStartIndex(message.list, 20);//初始化切片的起始坐标
+            virtualMessage.endIndex = message.list.length;//初始化切片的结束坐标
 
             //获取未读消息的条数
             const notReadCount = message.list.filter((item: any) => {
@@ -185,10 +175,10 @@ const goChat = async (receiverInfo: any, isNewChat: number, index: number) => {
             if (message.list[message.list.length - 1].receiver != userStore.userInfo._id) {
                 roomView.showToBottomButton = false;
                 // roomView.notReadCount = 0;
-                scrollToBottom(message.list.length);
+                scrollToBottom(10);
             } else if (notReadCount.length == 0) {
                 //如果最新的消息的接收者是自己，但notReadCount.length=0，同样直接触底
-                scrollToBottom(message.list.length);
+                scrollToBottom(10);
             } else {
                 //如果最新的消息的接收者是自己,并且notReadCount！=0，就scroll到最前面那条未读消息的位置
                 // roomView.notReadCount = notReadCount.length;
@@ -197,8 +187,8 @@ const goChat = async (receiverInfo: any, isNewChat: number, index: number) => {
                 //按时间戳降序排序，再过滤掉已读的，取第一个,就是对应的消息的dom的id,
                 //因为在渲染的时候就把id动态绑定上去了，
                 //也就是说：message._id = DOM的id
-                const scrollToRead = message.list.filter((item: any) => { return item.isRead == 0 })[0]._id;
-                console.log("message.list.filter((item: any) => { return item.isRead == 0 }):", message.list.filter((item: any) => { return item.isRead == 0 }));
+                const scrollToRead = message.list.slice(virtualMessage.startIndex, virtualMessage.endIndex).filter((item: any) => { return item.isRead == 0 })[0]._id;
+                // console.log("message.list.filter((item: any) => { return item.isRead == 0 }):", message.list.filter((item: any) => { return item.isRead == 0 }));
 
                 console.log("scrollToRead:", scrollToRead);
 
@@ -211,8 +201,6 @@ const goChat = async (receiverInfo: any, isNewChat: number, index: number) => {
                         firstNotReadDom.scrollIntoView();
                     }
                 }, 10);
-
-
             }
             // }
 
@@ -263,6 +251,8 @@ const myGetHistory = async (receiver: any) => {
         let datas: any = await getHistory(receiver);
         if (datas.status === 200) {
             message.list = datas.datas.message;
+
+
             console.log('聊天历史记录10086：', datas);
         }
     } catch (err) {
@@ -303,24 +293,6 @@ const postUpdateMessageStatus = async () => {
 const chatBody: any = ref(null);
 const scrollToBottom = (messageLength: number = 10) => {
 
-    //拿到对应的蓝点的index，通过index去修改state.notifyList.frends.isRead的值
-    // try {
-    //     let targetIndex = -1;
-    //     state.notifyList.frends.forEach((item: any, index: number) => {
-    //         if (item.notify._id == roomView.receiverInfo.notify._id) {
-    //             targetIndex = index;
-    //         }
-
-    //     })
-    //     // console.log("index:", targetIndex);
-    //     if (targetIndex != -1) {
-    //         state.notifyList.frends[targetIndex].notify.isRead = 1;
-    //         postUpdateMessageStatus();
-    //     }
-    // } catch (err) {
-    //     console.log(err);
-    // }
-
     /*
     如果消息长度大于20,过渡效果猛烈点，不要让页面滚动得太慢了
     */
@@ -336,12 +308,23 @@ const scrollToBottom = (messageLength: number = 10) => {
             }
         }, 11)
     } else {
+        //直接触底
         chatBody.value.scrollTop = chatBody.value.scrollHeight;
-
     }
 
 }
 //聊天界面容器触底方法
+
+//用于对聊天记录的性能优化
+const virtualMessage: any = reactive({
+    list: [],
+    startIndex: 0,
+    endIndex: 0,
+    itemHeight: 50,
+
+});
+//用于对聊天记录的性能优化
+
 
 
 // 当聊天界面滚动
@@ -364,30 +347,15 @@ const chatBodyScroll = () => {
             * 但是如果是自己发送的，并且不更新，那么计数和向下按钮也会为自己显示，
             * 所以，在点击消息预览后，如果最新的一条消息的接收者不是自己的id就直接触底，具体在gochat()方法内
            */
-        //    if (message.list[message.list.length - 1].sender != userStore.userInfo._id && message.list[message.list.length - 1].isRead == 0) {
-        //         scrollToBottom();
 
-        //     }
 
         //如果滚动触底，隐藏按钮，计数归零  
         if (chatBody.value.scrollTop + chatBody.value.clientHeight >= chatBody.value.scrollHeight - 2) {
             roomView.showToBottomButton = false;
             // roomView.notReadCount = 0;
 
-            //避免不必要的重复请求
-            // if (message.list[message.list.length - 1].isRead == 0) {
-            //     postUpdateMessageStatus();
-            // }
-
-
         } else {
-
-            //更新未读的计数
-            // if (roomView.notReadCount <= 0) {
-            //     roomView.notReadCount = 0;
-            // }
-
-            // roomView.notReadCount--;
+            //如果往下滚动但没触底
             let idsArray: any = [];
             for (let i = 0; i < message.list.length; i++) {
                 /**
@@ -621,8 +589,8 @@ onMounted(() => {
                 <!-- 对话流 -->
                 <div class="chat-body p-4 flex-1 overflow-y-scroll" ref="chatBody" @scroll="chatBodyScroll" id="chatBody-container">
                     
-                    <!-- 别人文本消息 others -->
-                    <template v-for="item, index in message.list" :key="index">
+                    <!-- 文本消息 others -->
+                    <template v-for="item, index in message.list.slice(virtualMessage.startIndex, virtualMessage.endIndex)" :key="index">
                         
                      
                         <div :class="userStore.userInfo._id == item.receiver && item.contentType == 1 ? 'flex flex-row justify-start mt-1' : 'flex justify-start flex-row-reverse mt-3'">
@@ -667,7 +635,7 @@ onMounted(() => {
                             <!-- 信息内容 -->
                         </div>
                    </template>
-                    <!--别人文本消息 others -->
+                    <!--文本消息 others -->
 
                    
 

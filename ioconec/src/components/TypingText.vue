@@ -4,7 +4,7 @@ export default {
 }
 </script>
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue';
+import { ref, reactive, onMounted, watchEffect } from 'vue';
 
 const props = defineProps({
   text: {
@@ -16,11 +16,17 @@ const props = defineProps({
 
 
 let typingText = ref('');
+
 const state: any = reactive({
   cursor: 1,
 });
 
+watchEffect(() => {
+  typingText.value = props.text;
+});
+
 onMounted(() => {
+  typingText.value = '';
   setTimeout(() => {
     const typingInterval = setInterval(() => {
       if (typingText.value.length < props.text.length) {
