@@ -11,7 +11,7 @@ import { useUserStore } from '@/stores/modules/user';
 import { baseURL } from '../privateKeys/index';
 import io from 'socket.io-client';
 import { notifyFormatter } from '../utils/time';
-import { firstStartIndex } from '../utils/handleMessageList';
+import { initViretualMesssage, sliceMessage } from '../utils/handleMessageList';
 
 import TypingText from '@/components/TypingText.vue';
 import loding from '../components/Loading.vue';
@@ -58,6 +58,8 @@ socket.on('message', async (data: any) => {
         if (chatBody.value.scrollTop + chatBody.value.clientHeight >= chatBody.value.scrollHeight - 4) {
             //push进去，实现触底效果
             message.list.push(data.data[data.data.length - 1]);
+            virtualMessage.list.push(data.data[data.data.length - 1]);
+            // virtualMessage.list = message.list.slice(message.list.length - 20, message.list.length);
             scrollToBottom(10);
         }
 
@@ -159,13 +161,16 @@ const goChat = async (receiverInfo: any, isNewChat: number, index: number) => {
 
             roomView.groupId = roomView.receiverInfo.notify.group;//对应的groupId更新过去
 
-
             await myGetHistory(roomView.receiverInfo._id);//获取聊天历史
-            virtualMessage.startIndex = firstStartIndex(message.list, 20);//初始化切片的起始坐标
-            virtualMessage.endIndex = message.list.length;//初始化切片的结束坐标
+
+            //初始化最终渲染的聊天记录，返回初始化后的要显示的聊天记录和下标
+            const { _virtualMessage, _startIndex, _endIndex } = initViretualMesssage(message.list, 20)
+            virtualMessage.list = _virtualMessage;
+            virtualMessage.startIndex = _startIndex;
+            virtualMessage.endIndex = _endIndex;
 
             //获取未读消息的条数
-            const notReadCount = message.list.filter((item: any) => {
+            const notReadCount = virtualMessage.list.filter((item: any) => {
                 return item.isRead == 0;
             });
             // roomView.notReadCount = notReadCount.length;
@@ -187,7 +192,7 @@ const goChat = async (receiverInfo: any, isNewChat: number, index: number) => {
                 //按时间戳降序排序，再过滤掉已读的，取第一个,就是对应的消息的dom的id,
                 //因为在渲染的时候就把id动态绑定上去了，
                 //也就是说：message._id = DOM的id
-                const scrollToRead = message.list.slice(virtualMessage.startIndex, virtualMessage.endIndex).filter((item: any) => { return item.isRead == 0 })[0]._id;
+                const scrollToRead = virtualMessage.list.filter((item: any) => { return item.isRead == 0 })[0]._id;
                 // console.log("message.list.filter((item: any) => { return item.isRead == 0 }):", message.list.filter((item: any) => { return item.isRead == 0 }));
 
                 console.log("scrollToRead:", scrollToRead);
@@ -232,6 +237,8 @@ const onSend = async () => {
         };
 
         message.list.push(sendData);
+        virtualMessage.list.push(sendData);
+        // virtualMessage.list = message.list.slice(message.list.length - 20, message.list.length);
         roomView.content = '';
         scrollToBottom(10);
         //发送消息给服务端
@@ -251,8 +258,6 @@ const myGetHistory = async (receiver: any) => {
         let datas: any = await getHistory(receiver);
         if (datas.status === 200) {
             message.list = datas.datas.message;
-
-
             console.log('聊天历史记录10086：', datas);
         }
     } catch (err) {
@@ -320,23 +325,74 @@ const virtualMessage: any = reactive({
     list: [],
     startIndex: 0,
     endIndex: 0,
-    itemHeight: 50,
+    hasTopMore: true,
+    hasBottomMore: true,
+    size: 20
 
 });
 //用于对聊天记录的性能优化
 
 
-
 // 当聊天界面滚动
 //用于监测停止滚动的定时器
 let isScrolling: any = null;
+let conut = 0;//目的是控制触底后只触发一次
 const chatBodyScroll = () => {
     try {
+        conut = 0;
         let currentScrollTop = chatBody.value.scrollTop;
         let currentClientHeight = chatBody.value.clientHeight;
+
         //如果往上滚动，显示触底按钮
         if (chatBody.value.scrollTop + chatBody.value.clientHeight < chatBody.value.scrollHeight - 2) {
             roomView.showToBottomButton = true;
+
+            //如果触顶了
+            if (chatBody.value.scrollTop == 0) {
+
+                let virtualDom = document.getElementById(virtualMessage.list[virtualMessage.size - 1]._id);
+                console.log('触顶了');
+                /**
+                 * 先获取到virtualMessage未更新时最顶部的dom，
+                 * 用于virtualMessage更新后使用dom.scrollIntoView({behavior: 'instant'})方法，
+                 * 没有过渡效果地滚动到dom，使其具有连贯性。
+                 * */
+
+                // setTimeout(() => {
+
+
+                // console.log("_sliceMessage", _sliceMessage);
+
+
+                if (virtualMessage.list.length >= virtualMessage.size && virtualMessage.list.length < virtualMessage.size * 2 && virtualDom) {
+
+                    const { _sliceMessage, _startIndex, _endIndex, _hasTopMore, _hasBottomMore } = sliceMessage('top', virtualMessage.hasTopMore, virtualMessage.hasBottomMore, message.list, virtualMessage.list.length, virtualMessage.size, virtualMessage.startIndex, virtualMessage.endIndex);
+                    virtualMessage.startIndex = _startIndex;
+                    virtualMessage.endIndex = _endIndex;
+                    virtualMessage.hasTopMore = _hasTopMore;
+                    virtualMessage.hasBottomMore = _hasBottomMore;
+
+                    let tempArr = [..._sliceMessage, ...virtualMessage.list];
+                    virtualMessage.list = tempArr;
+                    // console.log("tempArr", tempArr);
+                    virtualDom!.scrollIntoView();
+
+                } else if (virtualMessage.list.length >= virtualMessage.size * 2 && virtualDom) {
+
+                    const { _sliceMessage, _startIndex, _endIndex, _hasTopMore, _hasBottomMore } = sliceMessage('top', virtualMessage.hasTopMore, virtualMessage.hasBottomMore, message.list, virtualMessage.list.length, virtualMessage.size, virtualMessage.startIndex, virtualMessage.endIndex);
+                    virtualMessage.startIndex = _startIndex;
+                    virtualMessage.endIndex = _endIndex;
+                    virtualMessage.hasTopMore = _hasTopMore;
+                    virtualMessage.hasBottomMore = _hasBottomMore;
+
+                    let sliceVirtualMessage = virtualMessage.list.slice(0, virtualMessage.size);
+                    let tempArr = [..._sliceMessage, ...sliceVirtualMessage];
+                    virtualMessage.list = tempArr;
+                    // virtualMessage.hasBottomMore = true;
+                    virtualDom!.scrollIntoView();
+                }
+                // }, 50);
+            }
         }
 
         /**
@@ -350,21 +406,70 @@ const chatBodyScroll = () => {
 
 
         //如果滚动触底，隐藏按钮，计数归零  
-        if (chatBody.value.scrollTop + chatBody.value.clientHeight >= chatBody.value.scrollHeight - 2) {
+
+        if (chatBody.value.scrollTop + chatBody.value.clientHeight >= chatBody.value.scrollHeight - 0.5) {
             roomView.showToBottomButton = false;
-            // roomView.notReadCount = 0;
+            conut++;
+            console.log("conut1=", conut, virtualMessage.hasBottomMore);
+
+
+            if (virtualMessage.hasBottomMore && conut == 1) {
+                console.log("conut=", conut);
+
+                console.log(`chatBody.value.scrollTop+chatBody.value.clientHeight=${chatBody.value.scrollTop + chatBody.value.clientHeight},chatBody.value.scrollHeight=${chatBody.value.scrollHeight}`);
+                let virtualDom = document.getElementById(virtualMessage.list[virtualMessage.size - 1]._id);
+                // setTimeout(() => {
+                console.log("virtualDom:", virtualDom);
+
+                console.log("virtualMessage.list:", virtualMessage.list);
+
+
+
+                if (virtualMessage.list.length == virtualMessage.size && virtualDom) {
+                    const { _sliceMessage, _startIndex, _endIndex, _hasBottomMore, _hasTopMore } = sliceMessage('bottom', virtualMessage.hasTopMore, virtualMessage.hasBottomMore, message.list, virtualMessage.list.length, virtualMessage.size, virtualMessage.startIndex, virtualMessage.endIndex);
+
+                    virtualMessage.startIndex = _startIndex;
+                    virtualMessage.endIndex = _endIndex;
+                    virtualMessage.hasBottomMore = _hasBottomMore;
+                    virtualMessage.hasTopMore = _hasTopMore;
+
+                    virtualMessage.list = _sliceMessage;
+                    virtualMessage.hasBottomMore = false;
+
+                    virtualDom!.scrollIntoView({ block: 'end' });
+
+
+                } else if (virtualMessage.list.length >= virtualMessage.size * 2 && virtualDom) {
+                    const { _sliceMessage, _startIndex, _endIndex, _hasBottomMore, _hasTopMore } = sliceMessage('bottom', virtualMessage.hasTopMore, virtualMessage.hasBottomMore, message.list, virtualMessage.list.length, virtualMessage.size, virtualMessage.startIndex, virtualMessage.endIndex);
+
+                    virtualMessage.startIndex = _startIndex;
+                    virtualMessage.endIndex = _endIndex;
+                    virtualMessage.hasBottomMore = _hasBottomMore;
+                    virtualMessage.hasTopMore = _hasTopMore;
+
+                    let sliceVirtualMessage = virtualMessage.list.slice(virtualMessage.list.length - virtualMessage.size, virtualMessage.list.length)
+                    virtualMessage.list = sliceVirtualMessage.concat(_sliceMessage);
+
+                    virtualDom!.scrollIntoView({ block: 'end' });
+
+                    console.log("virtualMessage.list2:", virtualMessage.list);
+
+                }
+                // }, 50)
+            }
+
 
         } else {
             //如果往下滚动但没触底
             let idsArray: any = [];
-            for (let i = 0; i < message.list.length; i++) {
+            for (let i = 0; i < virtualMessage.list.length; i++) {
                 /**
                  * 如果dom.offsetTop - dom.clientHeight<=currentScrollTop + currentClientHeight，
                  * 说明这些dom为可视范围内的和已经被顶上去的，即都是用户已读的，
                  * 当停止滚动后，将这些id装到数组内,将对应的message为未读的id过滤出来，
                  * 最后将过滤出来的id发送给服务器，服务器操作数据库将这些id更新为已读状态
                  * */
-                const dom: any = document.getElementById(message.list[i]._id);
+                const dom: any = document.getElementById(virtualMessage.list[i]._id);
                 if ((dom.offsetTop - dom.clientHeight) <= (currentScrollTop + currentClientHeight)) {
                     // console.log("所有已读的dom:", dom.id, dom);
                     let isInside = idsArray.includes(dom.id);
@@ -377,7 +482,7 @@ const chatBodyScroll = () => {
                     isScrolling = setTimeout(async () => {
                         //全部被用户已读的id，但存在数据库里有一部分已经更新了的情况，
                         //需要将这些已经更新了的id过滤出来，最后将过滤出来的id发送给服务器，服务器操作数据库将这些id更新为已读状态
-                        let finalyNotreadIds = message.list.filter((item: any, index: number) => { return item.isRead == 0 && item._id == idsArray[index] }).map((item: any) => { return item._id });
+                        let finalyNotreadIds = virtualMessage.list.filter((item: any, index: number) => { return item.isRead == 0 && item._id == idsArray[index] }).map((item: any) => { return item._id });
                         // console.log('停止滚动了,全部被用户已读的id', idsArray);
                         // console.log('停止滚动了,全部被用户已读的id中数据库还没更新的id', finalyNotreadIds);
 
@@ -590,7 +695,7 @@ onMounted(() => {
                 <div class="chat-body p-4 flex-1 overflow-y-scroll" ref="chatBody" @scroll="chatBodyScroll" id="chatBody-container">
                     
                     <!-- 文本消息 others -->
-                    <template v-for="item, index in message.list.slice(virtualMessage.startIndex, virtualMessage.endIndex)" :key="index">
+                    <template v-for="item, index in virtualMessage.list" :key="index">
                         
                      
                         <div :class="userStore.userInfo._id == item.receiver && item.contentType == 1 ? 'flex flex-row justify-start mt-1' : 'flex justify-start flex-row-reverse mt-3'">

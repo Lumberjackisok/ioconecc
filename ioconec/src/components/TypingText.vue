@@ -22,6 +22,7 @@ const state: any = reactive({
 });
 
 watchEffect(() => {
+
   typingText.value = props.text;
 });
 
