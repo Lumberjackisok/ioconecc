@@ -14,6 +14,9 @@ const groupSchema = new Schema({
         type: Schema.Types.ObjectId,
         ref: 'User'
     }],
+    avatar: {
+        type: String,
+    },
     createTime: {
         type: Number,
         default: Math.round(new Date() / 1000),

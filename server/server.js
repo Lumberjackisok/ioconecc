@@ -61,7 +61,7 @@ const io = require('socket.io')(httpServer, {
 });
 
 //接收客户端的连接，并获取传过来的token
-io.use(async (socket, next) => {
+io.use(async(socket, next) => {
     try {
         if (socket.handshake.query.token) {
             const token = JSON.parse(socket.handshake.query.token)['token'];
@@ -85,7 +85,7 @@ io.use(async (socket, next) => {
 });
 
 //连接到客户端的socket，并监听自定义事件
-io.on('connection', async (socket) => {
+io.on('connection', async(socket) => {
     console.log('连接到客户端的socket');
     console.log('socket.Id:', socket.id);
     // try {
@@ -102,7 +102,7 @@ io.on('connection', async (socket) => {
     // }
 
     //监听客户端的disconnect事件，断开连接后更新数据库的isOnline状态为0,socketId为空字符串
-    socket.on('disconnect', async () => {
+    socket.on('disconnect', async() => {
         await User.updateOne({ _id: socket.uid }, {
             $set: {
                 isOnline: 0,
@@ -111,8 +111,18 @@ io.on('connection', async (socket) => {
         })
     });
 
+    //加入群组
+    socket.on('join room', (goupId) => {
+        socket.join(goupId);
+    });
+
+    //离开群组
+    socket.on('leave room', (goupId) => {
+        socket.leave(goupId);
+    });
+
     //监听客户端的message发消息事件
-    socket.on('message', async (val, fn) => {
+    socket.on('message', async(val, fn) => {
         console.log('message数据:', val.sendData);
 
         const { sendData } = val;
@@ -128,7 +138,7 @@ io.on('connection', async (socket) => {
         //如果对方的language和自己的language不一样才进行翻译
         if (sendData.receiverLanguage != sendData.senderLanguage) {
             try {
-                //使用openai的davinci-003进行翻译
+                //使用openai进行翻译
                 const translatedContent = await openAITranslate(sendData.content, sendData.receiverLanguage);
                 console.log('原文：', sendData.content);
                 console.log('翻译文本：', translatedContent);
@@ -139,7 +149,6 @@ io.on('connection', async (socket) => {
                     contentType: sendData.contentType,
                     content: sendData.content,
                     translatedContent: translatedContent,
-                    // group: group._id,
                     group: sendData.groupId,
                     isRead: 0,
                     updateAt: new Date()

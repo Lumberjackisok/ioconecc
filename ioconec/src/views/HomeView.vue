@@ -5,7 +5,7 @@ export default {
 }
 </script>
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue';
+import { ref, reactive, onMounted, watch } from 'vue';
 import { search, getHistory, notifyList, createGroup, updateMessageStatus, updateMessageByIds } from '../https/index';
 import { useUserStore } from '@/stores/modules/user';
 import { baseURL } from '../privateKeys/index';
@@ -101,31 +101,62 @@ const roomView: any = reactive({
     index: 0,//当前聊天窗口对应的notify循环列表的索引
 });
 
+//群聊窗口数据
+const groupView: any = reactive({
+    groupId: "",
+});
+
 
 //聊天数据
 const message: any = reactive({
     list: []
 });
 
-//点击搜索
-const onSearch = async () => {
-    state.searchPage = 1;
-    try {
-        let datas: any = await search(state.searchContent, state.searchPage, 10);
-        console.log('搜索：', datas);
-        if (datas.status == 200) {
-            state.searchList = datas.users;
-            state.searchDatas = {
-                currentPage: datas.currentPage,
-                total: datas.total,
-                totalPages: datas.totalPages
-            }
-        }
-    } catch (e) {
-        console.log(e);
+//搜索用户
+const onSearch = async (isSearchingForMessage = 1) => {
+    if (addMembers.searchContent == '') {
+        addMembers.searchList = [];
     }
+    if (state.searchContent == '') {
+        state.searchList = [];
+    }
+    if (addMembers.searchContent != '' || state.searchContent != '') {
+        try {
+            if (isSearchingForMessage == 1) {
+                state.searchPage = 1;
+                let datas: any = await search(state.searchContent, state.searchPage, 10);
+                console.log('搜索：', datas);
+                if (datas.status == 200) {
+                    state.searchList = datas.users;
+                    state.searchDatas = {
+                        currentPage: datas.currentPage,
+                        total: datas.total,
+                        totalPages: datas.totalPages
+                    }
+                }
+            } else {
+
+                let datas: any = await search(addMembers.searchContent, addMembers.searchPage, 3);
+                if (datas.status == 200) {
+                    addMembers.searchList = datas.users;
+                    addMembers.searchDatas = {
+                        currentPage: datas.currentPage,
+                        total: datas.total,
+                        totalPages: datas.totalPages
+                    }
+                }
+            }
+
+
+        } catch (e) {
+            console.log(e);
+        }
+    }
+
 };
-//点击搜索
+
+
+//搜索用户
 
 //点击搜索列表或聊天列表后，开启单聊聊天室
 //三个参数：对方信息，是否为新创建聊天室，notify卡片循环列表对应的下标
@@ -134,16 +165,21 @@ const goChat = async (receiverInfo: any, isNewChat: number, index: number) => {
 
     roomView.close = 0;//是否关闭聊天窗口
     roomView.receiverInfo = receiverInfo;
-    roomView.index = index;//拿到notify卡片循环列表对应的下标，用于滚动事件中判断是否需要触底更新的引路人
+    roomView.index = index;//拿到notify卡片循环列表对应的下标，用于滚动事件中判断是否需要触底更新的引路
+
     console.log('点击后对应的用户信息:', receiverInfo);
 
-    /**
-     * 
-     * 
-    */
+
+
     //如果是新建聊天就创建聊天室
     if (isNewChat === 1) {
+
         try {
+
+            //清空聊天室消息
+            message.list = [];
+            virtualMessage.list = [];
+
             const name = userStore.userInfo._id + " " + receiverInfo._id;
             const datas2: any = await createGroup(name, 1);
             await myGetHistory(receiverInfo._id);
@@ -155,65 +191,85 @@ const goChat = async (receiverInfo: any, isNewChat: number, index: number) => {
         } catch (err) {
             console.log(err);
         }
-    } else {//处理非新创建聊天室的情况
-        try {
-            console.log('非新创建聊天', roomView.receiverInfo.notify);
+    } else {
+        //处理非新创建聊天室的情况
+        //判断是否为群聊，如果点开的是群聊。让当前客户端加入聊天室
+        if (receiverInfo.isOne2One == 0) {
+            console.log('是群聊');
 
-            roomView.groupId = roomView.receiverInfo.notify.group;//对应的groupId更新过去
+            //更新群组id，更新之前需要离开上一次的
+            let groupId = groupView.groupId
+            socket.emit('leave room', groupId);
+            groupView.groupId = receiverInfo._id;
+            //更新后的群组id加入聊天室
+            socket.emit('join room', receiverInfo._id);
 
-            await myGetHistory(roomView.receiverInfo._id);//获取聊天历史
+            //清空聊天室消息， 清空后再重新获取聊天记录
+            message.list = [];
+            virtualMessage.list = [];
 
-            //初始化最终渲染的聊天记录，返回初始化后的要显示的聊天记录和下标
-            const { _virtualMessage, _startIndex, _endIndex } = initViretualMesssage(message.list, 20)
-            virtualMessage.list = _virtualMessage;
-            virtualMessage.startIndex = _startIndex;
-            virtualMessage.endIndex = _endIndex;
+        } else {
 
-            //获取未读消息的条数
-            const notReadCount = virtualMessage.list.filter((item: any) => {
-                return item.isRead == 0;
-            });
-            // roomView.notReadCount = notReadCount.length;
-            console.log('未读消息：', notReadCount);
+            try {
+                console.log('非新创建聊天且不是群聊', roomView.receiverInfo.notify);
 
-            //如果最新的一条消息的接收者不是自己的id就直接触底
-            if (message.list[message.list.length - 1].receiver != userStore.userInfo._id) {
-                roomView.showToBottomButton = false;
-                // roomView.notReadCount = 0;
-                scrollToBottom(10);
-            } else if (notReadCount.length == 0) {
-                //如果最新的消息的接收者是自己，但notReadCount.length=0，同样直接触底
-                scrollToBottom(10);
-            } else {
-                //如果最新的消息的接收者是自己,并且notReadCount！=0，就scroll到最前面那条未读消息的位置
+                roomView.groupId = roomView.receiverInfo.notify.group;//对应的groupId更新过去
+
+                await myGetHistory(roomView.receiverInfo._id);//获取聊天历史
+
+                //初始化最终渲染的聊天记录，返回初始化后的要显示的聊天记录和下标
+                const { _virtualMessage, _startIndex, _endIndex } = initViretualMesssage(message.list, 20)
+                virtualMessage.list = _virtualMessage;
+                virtualMessage.startIndex = _startIndex;
+                virtualMessage.endIndex = _endIndex;
+
+                //获取未读消息
+                const notReadCount = virtualMessage.list.filter((item: any) => {
+                    return item.isRead == 0;
+                });
                 // roomView.notReadCount = notReadCount.length;
-                roomView.showToBottomButton = notReadCount.length == 0 ? false : true;
+                console.log('未读消息：', notReadCount);
 
-                //按时间戳降序排序，再过滤掉已读的，取第一个,就是对应的消息的dom的id,
-                //因为在渲染的时候就把id动态绑定上去了，
-                //也就是说：message._id = DOM的id
-                const scrollToRead = virtualMessage.list.filter((item: any) => { return item.isRead == 0 })[0]._id;
-                // console.log("message.list.filter((item: any) => { return item.isRead == 0 }):", message.list.filter((item: any) => { return item.isRead == 0 }));
+                //如果最新的一条消息的接收者不是自己的id就直接触底
+                if (message.list[message.list.length - 1].receiver != userStore.userInfo._id) {
+                    roomView.showToBottomButton = false;
+                    // roomView.notReadCount = 0;
+                    scrollToBottom(10);
+                } else if (notReadCount.length == 0) {
+                    //如果最新的消息的接收者是自己，但notReadCount.length=0，同样直接触底
+                    scrollToBottom(10);
+                } else {
+                    //如果最新的消息的接收者是自己,并且notReadCount！=0，就scroll到最前面那条未读消息的位置
+                    // roomView.notReadCount = notReadCount.length;
+                    roomView.showToBottomButton = notReadCount.length == 0 ? false : true;
 
-                console.log("scrollToRead:", scrollToRead);
+                    //按时间戳降序排序，再过滤掉已读的，取第一个,就是对应的消息的dom的id,
+                    //因为在渲染的时候就把id动态绑定上去了，
+                    //也就是说：message._id = DOM的id
+                    const scrollToRead = virtualMessage.list.filter((item: any) => { return item.isRead == 0 })[0]._id;
+                    // console.log("message.list.filter((item: any) => { return item.isRead == 0 }):", message.list.filter((item: any) => { return item.isRead == 0 }));
 
-                //获取dom，在setTimeout内的目的是让dom加载完毕后再去获取
-                setTimeout(() => {
-                    let firstNotReadDom: any = document.getElementById(scrollToRead);
-                    console.log('firstNotReaDdom:', firstNotReadDom);
-                    if (firstNotReadDom) {
-                        //直接使用scrollIntoView()方法
-                        firstNotReadDom.scrollIntoView();
-                    }
-                }, 10);
+                    console.log("scrollToRead:", scrollToRead);
+
+                    //获取dom，在setTimeout内的目的是让dom加载完毕后再去获取
+                    setTimeout(() => {
+                        let firstNotReadDom: any = document.getElementById(scrollToRead);
+                        console.log('firstNotReaDdom:', firstNotReadDom);
+                        if (firstNotReadDom) {
+                            //直接使用scrollIntoView()方法
+                            firstNotReadDom.scrollIntoView();
+                        }
+                    }, 10);
+                }
+                // }
+
+                // getNotifyList();
+
+            } catch (err) {
+                console.log(err);
             }
-            // }
-
-            // getNotifyList();
-
-        } catch (err) {
-            console.log(err);
         }
+
     }
 };
 //点击搜索列表或聊天列表后，开启聊天室
@@ -224,29 +280,42 @@ const onSend = async () => {
     console.log("roomView.receiverInfo:", roomView.receiverInfo);
     if (roomView.content != '') {
 
-        const sendData = {
-            // isGroup: 0,//是否群组，默认否,如果是单聊就服务端处理翻译
-            sender: userStore.userInfo._id,//自己的id
-            receiver: roomView.receiverInfo._id,//要发送信息给那个人的id
-            contentType: 1,//1:文本，2：图片,暂时默认写死1，后期再根据实际做判断
-            content: roomView.content,//发送的信息内容
-            receiverLanguage: roomView.receiverInfo.language,//对方的母语
-            senderLanguage: userStore.userInfo.language,//自己的母语
-            isRead: 0,//0：未读，1：已读,默认未读
-            groupId: roomView.groupId,
-        };
+        //群聊逻辑
+        if (roomView.receiverInfo.isOne2One == 0) {
+            console.log('发送群聊消息');
+            /**
+             * 群聊需要客户端处理翻译，
+             * 
+            */
 
-        message.list.push(sendData);
-        virtualMessage.list.push(sendData);
-        // virtualMessage.list = message.list.slice(message.list.length - 20, message.list.length);
-        roomView.content = '';
-        scrollToBottom(10);
-        //发送消息给服务端
-        socket.emit('message', { sendData }, (data: any) => {
-            //发送成功的回调，可以写查找历史记录的业务，比如message.list = data;
-            // message.list = data;
-            console.log('发送成功后服务器返回来的:', data);
-        });
+        } else {
+            //单聊逻辑
+
+            const sendData = {
+                // isGroup: 0,//是否群组，默认否,如果是单聊就服务端处理翻译
+                sender: userStore.userInfo._id,//自己的id
+                receiver: roomView.receiverInfo._id,//要发送信息给那个人的id
+                contentType: 1,//1:文本，2：图片,暂时默认写死1，后期再根据实际做判断
+                content: roomView.content,//发送的信息内容
+                receiverLanguage: roomView.receiverInfo.language,//对方的母语
+                senderLanguage: userStore.userInfo.language,//自己的母语
+                isRead: 0,//0：未读，1：已读,默认未读
+                groupId: roomView.groupId,
+            };
+
+            message.list.push(sendData);
+            virtualMessage.list.push(sendData);
+            // virtualMessage.list = message.list.slice(message.list.length - 20, message.list.length);
+            roomView.content = '';
+            scrollToBottom(10);
+            //发送消息给服务端
+            socket.emit('message', { sendData }, (data: any) => {
+                //发送成功的回调，可以写查找历史记录的业务，比如message.list = data;
+                // message.list = data;
+                console.log('发送成功后服务器返回来的:', data);
+            });
+        }
+
     };
 };
 //点击发送消息
@@ -277,6 +346,7 @@ const getNotifyList = async () => {
             state.notifyList.frends.sort((a: any, b: any) => {
                 return b.notify.updateAt - a.notify.updateAt
             })
+            roomView.notReadCount = state.notifyList.frends[roomView.index].notify.notreadCount;
         }
 
     } catch (err) {
@@ -328,7 +398,6 @@ const virtualMessage: any = reactive({
     hasTopMore: true,
     hasBottomMore: true,
     size: 20
-
 });
 //用于对聊天记录的性能优化
 
@@ -336,10 +405,10 @@ const virtualMessage: any = reactive({
 // 当聊天界面滚动
 //用于监测停止滚动的定时器
 let isScrolling: any = null;
-let conut = 0;//目的是控制触底后只触发一次
+let conut = 0;//目的是控制触底后只触发一次，在非向下触底的情况下conut都需要等于0
 const chatBodyScroll = () => {
     try {
-        conut = 0;
+        conut = 0;//非向下触底的情况下conut都等于0了
         let currentScrollTop = chatBody.value.scrollTop;
         let currentClientHeight = chatBody.value.clientHeight;
 
@@ -406,12 +475,11 @@ const chatBodyScroll = () => {
 
 
         //如果滚动触底，隐藏按钮，计数归零  
-
         if (chatBody.value.scrollTop + chatBody.value.clientHeight >= chatBody.value.scrollHeight - 0.5) {
             roomView.showToBottomButton = false;
-            conut++;
-            console.log("conut1=", conut, virtualMessage.hasBottomMore);
 
+            conut++;//累加计数，目的是加入触底后只执行一次触底更新的代码
+            console.log("conut1=", conut, virtualMessage.hasBottomMore);
 
             if (virtualMessage.hasBottomMore && conut == 1) {
                 console.log("conut=", conut);
@@ -422,8 +490,6 @@ const chatBodyScroll = () => {
                 console.log("virtualDom:", virtualDom);
 
                 console.log("virtualMessage.list:", virtualMessage.list);
-
-
 
                 if (virtualMessage.list.length == virtualMessage.size && virtualDom) {
                     const { _sliceMessage, _startIndex, _endIndex, _hasBottomMore, _hasTopMore } = sliceMessage('bottom', virtualMessage.hasTopMore, virtualMessage.hasBottomMore, message.list, virtualMessage.list.length, virtualMessage.size, virtualMessage.startIndex, virtualMessage.endIndex);
@@ -461,9 +527,12 @@ const chatBodyScroll = () => {
 
         } else {
             //如果往下滚动但没触底
+
             let idsArray: any = [];
             for (let i = 0; i < virtualMessage.list.length; i++) {
                 /**
+                 * 经过在控制台将各属性的值打印出来，观察对比后发现，
+                 * 关键点在om.offsetTop、dom.clientHeight、currentScrollTop、currentClientHeight上，
                  * 如果dom.offsetTop - dom.clientHeight<=currentScrollTop + currentClientHeight，
                  * 说明这些dom为可视范围内的和已经被顶上去的，即都是用户已读的，
                  * 当停止滚动后，将这些id装到数组内,将对应的message为未读的id过滤出来，
@@ -480,8 +549,11 @@ const chatBodyScroll = () => {
 
                     clearTimeout(isScrolling);
                     isScrolling = setTimeout(async () => {
-                        //全部被用户已读的id，但存在数据库里有一部分已经更新了的情况，
-                        //需要将这些已经更新了的id过滤出来，最后将过滤出来的id发送给服务器，服务器操作数据库将这些id更新为已读状态
+                        /*
+                         * 全部被用户已读的id，但存在数据库里有一部分已经更新了的情况，
+                         * 需要将这些已经更新了的id过滤出来，最后将过滤出来的id发送给服务器，
+                         * 服务器操作数据库将这些id更新为已读状态
+                        */
                         let finalyNotreadIds = virtualMessage.list.filter((item: any, index: number) => { return item.isRead == 0 && item._id == idsArray[index] }).map((item: any) => { return item._id });
                         // console.log('停止滚动了,全部被用户已读的id', idsArray);
                         // console.log('停止滚动了,全部被用户已读的id中数据库还没更新的id', finalyNotreadIds);
@@ -492,11 +564,8 @@ const chatBodyScroll = () => {
                         */
                         let notifyIndex = roomView.index;
                         if (finalyNotreadIds.length >= 1 && state.notifyList.frends[notifyIndex].notify.isRead == 0) {
-                            // state.notifyList.frends[i].notify.isRead == 0
                             let datas: any = await updateMessageByIds(finalyNotreadIds);
                             await getNotifyList();
-
-                            // roomView.showToBottomButton = roomView.notReadCount <= 0 && chatBody.value.scrollTop + chatBody.value.clientHeight >= chatBody.value.scrollHeight - 2 ? false : true;
                             console.log('按id更新状态', datas);
                         }
                     }, 10);
@@ -514,7 +583,7 @@ const chatBodyScroll = () => {
 
 // 搜索列表加载更多方法
 /**
- * 1.获取滚动节点 const searchListBody: any = ref(null);
+ * 1.获取滚动节点 let searchListBody: any = ref(null);
  * 2.在节点的onScroll事件内判断是否滚动触底： if (searchListBody.value.scrollTop + searchListBody.value.clientHeight >=
  *          searchListBody.value.scrollHeight - 2){处理加载更多}
  * 
@@ -524,6 +593,7 @@ const loadMoreSearch = async () => {
     if (state.searchPage == state.searchDatas.totalPages) {
         return;
     }
+
 
     if (searchListBody.value.scrollTop + searchListBody.value.clientHeight >= searchListBody.value.scrollHeight - 2) {
         console.log('触底了');
@@ -544,14 +614,136 @@ const loadMoreSearch = async () => {
             console.log(err);
         }
     }
+
 }
+
+//添加members的搜索触底加载更多
+
 // 搜索列表加载更多方法
+
+
+//新建群组
+const addMembers: any = reactive({
+    members: [],
+    searchList: [],
+    isShowModal: false,
+    searchContent: '',
+    searchPage: 1,
+    isSeachOnload: false,
+    isCreateName: true,
+    groupName: '',
+})
+
+//点击新建
+const onOpeanModal = () => {
+    addMembers.isShowModal = true;
+}
+
+//下一步
+const onNext = () => {
+    if (addMembers.groupName != '') {
+        addMembers.isCreateName = false;
+    }
+}
+
+//点击添加
+const onAdd = (userInfo: any) => {
+    console.log('添加用户：', userInfo);
+    let isInside = addMembers.members.some((item: any) => {
+        return item._id == userInfo._id;
+    })
+    console.log(isInside);
+    if (!isInside) {
+        addMembers.members.push(userInfo);
+    }
+
+}
+
+
+//点击删除member
+const onDeleteMember = (member: any) => {
+    console.log(member);
+    let index = addMembers.members.findIndex((item: any) => {
+        return item._id == member._id;
+    })
+    addMembers.members.splice(index, 1);
+}
+
+//关闭
+const oncloseCreateGroup = () => {
+    addMembers.groupName = '';
+    addMembers.searchContent = '';
+    addMembers.isCreateName = true;
+    addMembers.searchList = [];
+    addMembers.members = [];
+}
+
+
+
+//点击上一步,返回到设置群组名称
+const onPrevious = () => {
+    addMembers.isCreateName = true;
+    addMembers.searchContent = '';
+    addMembers.searchList = [];
+    addMembers.members = [];
+}
+
+//点击创建
+const onCreate = async () => {
+    let members = addMembers.members.map((item: any) => {
+        return item._id;
+    });
+
+    //把自己装进去,第一个是群主
+    members.unshift(userStore.userInfo._id);
+
+    console.log("members", members);
+
+
+    try {
+        const datas: any = await createGroup(addMembers.groupName, 0, members);
+        console.log('创建群聊', datas);
+        if (datas.status == 200) {
+            addMembers.isShowModal = false;
+            addMembers.groupName = '';
+            addMembers.searchContent = '';
+            addMembers.isCreateName = true;
+            addMembers.searchList = [];
+            addMembers.members = [];
+
+            await getNotifyList();
+        }
+
+    } catch (err) {
+        console.log(err);
+    }
+}
+
+//新建群组
+
+//监听虚拟列表，如果发生改变，并且roomView.receiverInfo.isOne2One不等于0，
+//说明离开了群聊，需要告诉服务器切断soket上的群聊
+watch(
+    () => virtualMessage.list,
+    (value, oldValue) => {
+        let isLeave = roomView.receiverInfo ? 1 : 0;
+        if (isLeave) {
+
+            if (roomView.receiverInfo.isOne2One != 0) {
+
+                socket.emit('leave room', groupView.groupId);
+            }
+        }
+    },
+    { immediate: true }
+)
 
 onMounted(() => {
     let token = sessionStorage.getItem('token') == null ? '' : JSON.parse(sessionStorage.getItem('token')!);
     console.log('token::::', token.token);
     getNotifyList();
 });
+
 
 </script>
 
@@ -568,12 +760,15 @@ onMounted(() => {
                              src="../assets/saturn2.ico"/>
                     </div>
                     <p class="text-md font-bold hidden md:block group-hover:block">IOconec</p>
-                    <a href="#" class="block rounded-full hover:bg-gray-700 bg-gray-800 w-10 h-10 p-2 hidden md:block group-hover:block">
+              <!-- 新建群组按钮 -->
+                    <label @click="onOpeanModal" htmlFor="my-modal-3"   class="block rounded-full hover:bg-gray-700 bg-gray-800 w-10 h-10 p-2 hidden md:block group-hover:block">
+            
                         <svg viewBox="0 0 24 24" class="w-full h-full fill-current">
                             <path
                                     d="M6.3 12.3l10-10a1 1 0 0 1 1.4 0l4 4a1 1 0 0 1 0 1.4l-10 10a1 1 0 0 1-.7.3H7a1 1 0 0 1-1-1v-4a1 1 0 0 1 .3-.7zM8 16h2.59l9-9L17 4.41l-9 9V16zm10-2a1 1 0 0 1 2 0v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6c0-1.1.9-2 2-2h6a1 1 0 0 1 0 2H4v14h14v-6z"/>
                         </svg>
-                    </a>
+                    </label>
+               <!-- 新建群组按钮 -->
                 </div>
 
                 <!-- 搜索框 -->
@@ -581,7 +776,7 @@ onMounted(() => {
                     <form onsubmit="">
                         <div class="relative">
                             <label>
-                                <input v-model="state.searchContent" @keyup="onSearch" class="rounded-full py-2 pr-6 pl-10 w-full border border-gray-800 focus:border-gray-700 bg-gray-800 focus:bg-gray-900 focus:outline-none text-gray-200 focus:shadow-md transition duration-300 ease-in"
+                                <input v-model="state.searchContent" @keyup="onSearch(1)" class="rounded-full py-2 pr-6 pl-10 w-full border border-gray-800 focus:border-gray-700 bg-gray-800 focus:bg-gray-900 focus:outline-none text-gray-200 focus:shadow-md transition duration-300 ease-in"
                                        type="text"  placeholder="Search Messenger"/>
                                 <span  class="absolute top-0 left-0 mt-2 ml-3 inline-block">
                                     <svg viewBox="0 0 24 24" class="w-6 h-6">
@@ -599,24 +794,31 @@ onMounted(() => {
                 <div v-if="state.searchContent == ''" class="contacts p-2 flex-1 overflow-y-scroll">
                   
                     <div v-for="item, index in state.notifyList.frends" :key="index" @click="goChat(item, 0, index)" class="flex justify-between items-center p-3 hover:bg-gray-800 rounded-lg relative">
-                         <!-- 头像 -->
-                        <div class="w-16 h-16 relative flex flex-shrink-0">
+                         <!-- 单聊头像 -->
+                        <div v-if="item.avatar" class="w-16 h-16 relative flex flex-shrink-0">
                             <img class="shadow-md rounded-full w-full h-full object-cover"
                                  :src="item.avatar"
                                  alt=""
                             />
                         </div>
-                   <!-- 头像 -->
-                
+                   <!-- 单聊头像 -->
 
+                   <!-- 群聊头像 -->
+                   <div v-else className="avatar placeholder">
+                        <div className="bg-neutral-focus text-neutral-content rounded-full w-16">
+                            <span className="text-3xl">{{ item.name[0] }}</span>
+                        </div>
+                   </div> 
+                   <!-- 群聊头像 -->
+                
                 <!-- 用户名、最新收到的信息、时间 -->
                         <div class="flex-auto min-w-0 ml-4 mr-6 hidden md:block group-hover:block">
-                            <p>{{ item.username }}</p>
+                            <p>{{ item.username ? item.username : item.name }}</p>
                             <div class="flex items-center text-sm text-gray-600">
                                 <div class="min-w-0">
-                                    <p class="truncate">{{ item.notify.content }}</p>
+                                    <p class="truncate">{{ item.notify.content ? item.notify.content : 'hi' }}</p>
                                 </div>
-                                <p class="ml-2 whitespace-no-wrap">{{ notifyFormatter(item.notify.updateAt) }}</p>
+                                <p class="ml-2 whitespace-no-wrap">{{ notifyFormatter(item.notify.updateAt ? item.notify.updateAt : item.createTime) }}</p>
                             </div>
                         </div>
                         <div v-if="userStore.userInfo._id != item.notify.sender && item.notify.isRead == 0" class="bg-blue-700 w-6 h-6 rounded-full inline-flex text-center items-center justify-center flex-shrink-0 hidden md:block group-hover:block">{{ item.notify.notreadCount }}</div>
@@ -628,7 +830,7 @@ onMounted(() => {
 
 
                   <!-- 搜索用户列表 -->
-                <div v-if="state.searchContent != ''" class="contacts p-2 flex-1 overflow-y-scroll" ref="searchListBody" @scroll="loadMoreSearch">
+                <div v-if="state.searchContent != ''" class="contacts p-2 flex-1 overflow-y-scroll" ref="searchListBody" @scroll="loadMoreSearch()">
                     <div v-for="item, index in state.searchList" :key="item" @click="goChat(item, 1, index)" class="flex justify-between items-center p-3 hover:bg-gray-800 rounded-lg relative">
                         <div class="w-16 h-16 relative flex flex-shrink-0">
                             <img class="shadow-md rounded-full w-full h-full object-cover"
@@ -657,14 +859,19 @@ onMounted(() => {
                 
                 <div class="chat-header px-6 py-4 flex flex-row flex-none justify-between items-center shadow">
                     <div class="flex">
-                        <div class="w-12 h-12 mr-4 relative flex flex-shrink-0">
+                        <div v-if="roomView.receiverInfo.isOne2One == 0 ? false : true" class="w-12 h-12 mr-4 relative flex flex-shrink-0">
                             <img class="shadow-md rounded-full w-full h-full object-cover"
                                  :src="roomView.receiverInfo.avatar"
                                  alt=""
                             />
                         </div>
+                        <div v-else className="avatar placeholder">
+                        <div className="bg-neutral-focus text-neutral-content rounded-full w-16">
+                            <span className="text-3xl">{{ roomView.receiverInfo.name[0] }}</span>
+                        </div>
+                   </div> 
                         <div class="text-sm">
-                            <p class="font-bold">{{ roomView.receiverInfo.username }}</p>
+                            <p class="font-bold">{{ roomView.receiverInfo.username ? roomView.receiverInfo.username : roomView.receiverInfo.name }}</p>
                             <p>some text here...</p>
                         </div>
                     </div>
@@ -698,11 +905,11 @@ onMounted(() => {
                     <template v-for="item, index in virtualMessage.list" :key="index">
                         
                      
-                        <div :class="userStore.userInfo._id == item.receiver && item.contentType == 1 ? 'flex flex-row justify-start mt-1' : 'flex justify-start flex-row-reverse mt-3'">
+                        <div :class="userStore.userInfo._id == item.receiver ? 'flex flex-row justify-start mt-1' : 'flex justify-start flex-row-reverse mt-3'">
                             <!-- 头像 -->
                             <div  class="flex items-center justify-center h-10 w-10 rounded-full  flex-shrink-0 mr-4 ml-2">
                                 <img class="shadow-md rounded-full w-full h-full object-cover"
-                                            :src="userStore.userInfo._id == item.receiver && item.contentType == 1 ? roomView.receiverInfo.avatar : userStore.userInfo.avatar"
+                                            :src="userStore.userInfo._id == item.receiver ? roomView.receiverInfo.avatar : userStore.userInfo.avatar"
                                             alt="" />
                             </div>
                             <!-- 头像 -->
@@ -751,7 +958,7 @@ onMounted(() => {
 
                     <!-- 触底按钮和未读计数 -->
                     <div v-if="roomView.showToBottomButton" @click="scrollToBottom()" class="fixed bottom-20 right-8 flex flex-col items-center">
-                       <div  class="flex justify-center absolute -top-2"></div>
+                       <div v-if="roomView.notReadCount"  class="flex justify-center absolute -top-2">{{ roomView.notReadCount }}</div>
                         <button className="btn btn-circle">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 transform rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
                         </button>
@@ -795,10 +1002,11 @@ onMounted(() => {
                                 </button>
                             </label>
                         </div>
-                        <button @click="onSend" type="button" class="flex flex-shrink-0 focus:outline-none mx-2 block text-blue-600 hover:text-blue-700 w-6 h-6">
-                            <svg viewBox="0 0 20 20" class="w-full h-full fill-current">
-                                <path d="M11.0010436,0 C9.89589787,0 9.00000024,0.886706352 9.0000002,1.99810135 L9,8 L1.9973917,8 C0.894262725,8 0,8.88772964 0,10 L0,12 L2.29663334,18.1243554 C2.68509206,19.1602453 3.90195042,20 5.00853025,20 L12.9914698,20 C14.1007504,20 15,19.1125667 15,18.000385 L15,10 L12,3 L12,0 L11.0010436,0 L11.0010436,0 Z M17,10 L20,10 L20,20 L17,20 L17,10 L17,10 Z"/>
+                        <button @click="onSend" type="button" class="flex flex-shrink-0 focus:outline-none mx-2 block text-blue-600 hover:text-blue-700 w-7 h-7">
+                            <svg  viewBox="0 0 16 16" class="w-full h-full fill-current ">
+                                <path d="M16 8A8 8 0 1 0 0 8a8 8 0 0 0 16 0zm-7.5 3.5a.5.5 0 0 1-1 0V5.707L5.354 7.854a.5.5 0 1 1-.708-.708l3-3a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 5.707V11.5z"/>
                             </svg>
+
                         </button>
                     </div>
                 </div>
@@ -818,6 +1026,106 @@ onMounted(() => {
             </section>
         </main>
     </div>
+
+    <!-- 新建群组的modal -->
+    <input v-if="addMembers.isShowModal" type="checkbox" id="my-modal-3" className="modal-toggle" />
+    <div className="modal">
+        <div className="modal-box relative">
+            <label @click="oncloseCreateGroup" htmlFor="my-modal-3" className="btn btn-sm btn-circle absolute right-2 top-2">✕</label>
+            <h3 className="text-lg font-bold">New Group</h3>
+
+            <!-- 设置群组名称 -->
+            <div v-if="addMembers.isCreateName" class="set-group-name">
+                
+                <div class="flex items-center mt-1 border-b-2 border-sky-800  py-2">
+                  <input v-model="addMembers.groupName" class="appearance-none bg-transparent border-none w-full  mr-3 py-1 px-2 leading-tight focus:outline-none" type="text" placeholder="Group name" aria-label="Full name">
+                </div>
+                    <div className="card-actions justify-end mt-2">
+                    <button className="btn btn-ghost" @click="onNext">Next</button>
+                    </div>
+              
+             
+            </div>
+            <!-- 设置群组名称 -->
+
+            <!-- 添加群组用户 -->
+            <div v-else class="add-members">
+            
+            <!-- 头像展示 -->
+            <div class="avatars">
+                <div class="avatar-group -space-x-6">
+                    <div class="relative">
+                        <div class="avatar" v-for="item, index in addMembers.members">
+    
+                            <div class="w-12">
+                                <img :src="item.avatar" />
+                            </div>
+                            
+                            <div @click="onDeleteMember(item)" class="absolute flex right-0 top-1 text-white cursor-pointer">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="w-12 h-10">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                             </div>
+                             
+                        </div>
+                       
+                    </div>
+                </div>
+
+            </div>
+            <!-- 头像展示 -->
+                <!-- 搜索框 -->
+            <div class="search-box p-4 flex-none">
+                    <form onsubmit="">
+                        <div class="relative">
+                            <label>
+                                <input v-model="addMembers.searchContent" @keyup="onSearch(0)" class="rounded-full py-2 pr-6 pl-10 w-full border border-gray-800 focus:border-gray-700 bg-gray-800 focus:bg-gray-900 focus:outline-none text-gray-200 focus:shadow-md transition duration-300 ease-in"
+                                       type="text"  placeholder="Search User"/>
+                                <span  class="absolute top-0 left-0 mt-2 ml-3 inline-block">
+                                    <svg viewBox="0 0 24 24" class="w-6 h-6">
+                                        <path fill="#bbb"
+                                              d="M16.32 14.9l5.39 5.4a1 1 0 0 1-1.42 1.4l-5.38-5.38a8 8 0 1 1 1.41-1.41zM10 16a6 6 0 1 0 0-12 6 6 0 0 0 0 12z"/>
+                                    </svg>
+                                </span>
+                            </label>
+                        </div>
+                    </form>
+            </div>
+             <!-- 搜索框 -->
+
+              <!-- 搜索用户列表 -->
+              <div class="contacts p-2 flex-1 overflow-y-scroll min-h-0">
+                    <div v-for="item, index in addMembers.searchList" :key="item" @click="onAdd(item)" class="flex justify-between items-center p-3 hover:bg-gray-800 rounded-lg relative">
+                        <div class="w-16 h-16 relative flex flex-shrink-0">
+                            <img class="shadow-md rounded-full w-full h-full object-cover"
+                                 :src="item.avatar"
+                                 alt=""
+                            />
+                        </div>
+                        <div class="flex-auto min-w-0 ml-4 mr-6 hidden md:block group-hover:block">
+                            <p>{{ item.username }}</p>
+                            <div class="flex items-center text-sm text-gray-600">
+                                <div class="min-w-0">
+                                    <p class="truncate">Last login:</p>
+                                </div>
+                                <p class="ml-2 whitespace-no-wrap">{{ item.lastLogin }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex justify-center"><loding :isLoading="addMembers.isSeachOnload"></loding></div>
+                    <div className="card-actions justify-end mt-2">
+                        <button className="btn btn-ghost" @click="onPrevious">Previous</button>
+                        <button className="btn btn-ghost" @click="onCreate">Create</button>
+                    </div>
+                    
+                </div>
+                  <!-- 搜索用户列表 -->
+            </div>
+            <!-- 添加群组用户 -->
+
+        </div>
+    </div>
+     <!-- 新建群组的modal -->
 </div>
 </template>
 

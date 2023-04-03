@@ -33,7 +33,8 @@ const chatGTP = async (input) => {
                 host: "127.0.0.1",
                 port: 7890,
                 protocol: "http"
-            }
+            },
+            // timeout: 5000
         };
         let completion = await axios(config)
             .then((response) => {
@@ -58,41 +59,4 @@ module.exports.openAITranslate = async (text, language) => {
     let datas = await chatGTP(finalyText);
     console.log("datas:", datas)
     return datas;
-    // try {
-
-    //     const completion = await openai.createChatCompletion({
-    //         model: "gpt-3.5-turbo",
-    //         messages: [
-    //             { "role": "user", "content": finalyText }
-    //         ]
-    //     });
-    //     console.log('completion:', completion.data);
-
-    //     // console.log("completion:", completion.data.choices[0].message.content.trim());
-    //     if (completion.data.choices[0].message) {
-    //         return completion.data.choices[0].message.content.trim();
-    //     }
-
-    //     // gpt - 3.5 - turbo不能用了， 测试返回到text - davinci - 003（也不能用）
-    //     // const completion = await openai.createCompletion({
-    //     //     "model": "text-davinci-003",
-    //     //     "prompt": `${finalyText}`,
-    //     //     "max_tokens": 2500,
-    //     // });
-    //     // console.log(completion.data.choices[0].text);
-    //     // console.log('completion:', completion);
-    //     // if (completion.data.choices[0]) {
-    //     //     return completion.data.choices[0].text.trim();
-    //     // }
-
-    // } catch (error) {
-    //     console.log('出错误了：', error);
-    //     // if (error.response) {
-    //     //     console.error(error.response.status, error.response.data);
-
-    //     // } else {
-    //     //     console.error(`Error with OpenAI API request: ${error.message}`);
-
-    //     // }
-    // }
 };

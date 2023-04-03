@@ -89,10 +89,11 @@ export const notifyList = () => {
  * name:string 群聊名称
  * isOne2One:number 是否为单聊聊天室，1：单聊聊天室，0：群聊聊天室
 */
-export const createGroup = (name: string, isOne2One: number) => {
+export const createGroup = (name: string, isOne2One: number, members: Array<any> = []) => {
   return instance.post('/createGroup', {
     name,
-    isOne2One
+    isOne2One,
+    members
   },
     {
       headers: {

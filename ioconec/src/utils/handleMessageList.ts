@@ -8,6 +8,11 @@
  * 否则返回0。
 */
 export const initViretualMesssage = (message: any, size: number = 20) => {
+  let notReadCount: number = message.filter((item: any) => {
+    return item.isRead == 0;
+  }).length;
+
+  console.log("notReadCount", notReadCount);
 
   if (size >= message.length) {
     return {
@@ -15,7 +20,14 @@ export const initViretualMesssage = (message: any, size: number = 20) => {
       _startIndex: 0,
       _endIndex: message.length
     };
+  } else if (notReadCount > size) {
+    return {
+      _virtualMessage: message.slice(message.length - (message.length - notReadCount) + size),
+      _startIndex: message.length - notReadCount,
+      _endIndex: (message.length - notReadCount) + size
+    }
   }
+
   return {
     _virtualMessage: message.slice(-size),
     _startIndex: message.length - size,
@@ -32,6 +44,15 @@ startIndex: number  初始化过的开始坐标
 endIndex: number  初始化过的结束坐标
 hasTopMore:boolean  向上是否还有更多
 hasBottomMore:boolean  向下是否还有更多
+
+返回：
+sliceMessage:any  在原始message那里截取的message
+hasTopMore:boolean  向上是否还有更多
+hasBottomMore:boolean  向下是否还有更多
+startIndex: number  当前渲染在页面上的virtalMessage的startIndex
+endIndex: number  前渲染在页面上的virtalMessage的endIndex
+
+除sliceMessage外，其它所有返回的值都需要用对应的变量接收更新，作为下一次的实参再次传入sliceMessage()方法。
 */
 
 
@@ -41,22 +62,33 @@ export const sliceMessage: any = (isTopOrBottom: string, hasTopMore: boolean, ha
   if (isTopOrBottom == 'top' && hasTopMore) {
 
     /*
-     *如果向上触顶了，
-     *先通过virtualMessage[size-1]._id获取到对应的dom，
-     *然后判断virtualMessage的长度是否为20，
-     *如果为真，
-     *将startIndex和endIndex向前移动20，
-     *endIdnex=startIndex,startIndex-=size,
-     *如果startIndex<=0,startIndex=0,hasTopMore=false,
-     *再用移动后的startIndex和endIndex去message截取一段数组，
-     *再将截取到的数组追加到virtualMessage的前面：virtualMessage=[...sliceMessage,...virtualMessage],
-     *如果virtualMessage的长度>=40,
-     *只截取virtualMessage前20条：
-     *let sliceVirtualMessage=virtualMessage.slice(20,virtualMessage.length),
-     *virtualMessage=[...sliceMessage,...sliceVirtualMessage],
-     *返回：sliceMessage，_startIndex，_endIndex,_hasMore，对应的变量接收更新，
-     *再使用dom.scrollIntoView()方法，没有过渡效果地滚动到触顶时virtualMessage内第一个dom，目的是使其具有连贯性。
-     */
+  如果向上触顶了：
+  
+  在触顶事件内：
+  1.调用sliceMessage()方法，并将sliceMessage()返回的数据接收，
+  2.通过virtualMessage[size-1]._id获取到对应的dom，
+  然后判断virtualMessage的长度是否为>=20且<size*2，
+  如果为真，
+  将sliceMessage()返回的_sliceMessage合并到当前virtualMessage的前面，
+  最后使用dom.scrollIntoView()方法，没有过渡效果地滚动到触顶时virtualMessage内第一个dom，目的是使其具有连贯性。
+  如果virtualMessage的长度>=size*2,
+  只保留当前virtualMessage前20条，
+  因为页面上消息的条数只能最多40条，
+  代码：
+  let sliceVirtualMessage=virtualMessage.slice(0, size);
+  virtualMessage=[...sliceMessage,...sliceVirtualMessage];
+  dom.scrollIntoView();
+  
+  在sliceMessage()方法内：
+  将startIndex和endIndex向前移动20，
+  endIdnex=startIndex,startIndex-=size,
+  如果startIndex<=0,startIndex=0,hasTopMore=false,
+  再用移动后的startIndex和endIndex去message截取一段数组，
+  最后返回的startIndex和endIndex为最终渲染的整个virtualMessage的坐标，
+  所以需要对其做处理，不然返回的是sliceMessage的下标，
+  
+  具体代码如下：
+   */
 
     if (virtualMessageLength >= size) {
       let tempIndex = 0;
@@ -87,24 +119,13 @@ export const sliceMessage: any = (isTopOrBottom: string, hasTopMore: boolean, ha
   } else if (isTopOrBottom == 'bottom' && hasBottomMore) {
 
     /*
-    如果是向下触底，
-    先通过virtualMessage[virtualMessage.length-size-1]._id获取到对应的dom，
-    然后判断virtualMessage的长度是否为20,
-    如果为真，
-    说明到底了，hasBottomMore=false，
-    
-    如果virtualMessage的长度>=40,
-    endIndex和startIndex向后移动20，
-    如果endIndex>=message.lenght,
-    endIndex=message.lenght,startIndex=virtualMessage.lenght-20,
-    再用移动后的startIndex和endIndex去message截取一段数组，
-    再将截取到的数组追加到virtualMessage的后面：virtualMessage.concat(sliceMessage),
-    
-    只截取virtualMessage后20条：
-    let sliceVirtualMessage=virtualMessage.slice(virtualMessage.length-20,virtualMessage.length),
-    virtualMessage=sliceVirtualMessage.concat(sliceMessage)
-    
-    */
+向下触底和向上触顶的逻辑基本相同，
+不同的是坐标归位需要减，
+dom获取的下标为virtualMessage.size - 1：virtualMessage[virtualMessage.size - 1]._id，
+并且为了使节点重新更新渲染后看起来连贯，需要使用{ block: 'end' }参数：
+virtualDom!.scrollIntoView({ block: 'end' })
+
+*/
     if (virtualMessageLength >= size) {
       let tempIndex = 0;
       tempIndex = endIndex;
@@ -139,73 +160,7 @@ export const sliceMessage: any = (isTopOrBottom: string, hasTopMore: boolean, ha
 
 }
 
-/**
- * 根据相应的向上滚动或向下滚动，对startIndex和endIndex进行相应的调整。
- * 参数：isTopOrBottom向上触顶还是向下触底，message数组,展示的条数默认20，stratIndex,endIndex。
- * 返回三个值：startIndex,endIndex,hasMore。
-*/
-export const handleMessage = (isTopOrBottom: string, message: any, size: number = 20, startIndex: number, endIndex: number) => {
-  /**
-   * 如果向上滚动触顶了，则endIndex=startIndex + 1,startIndex=startIndex - size,
-   * 如果startIndex - size <= 0，说明已经没有更多了,则startIndex = 0,endIndex = 20
-  */
-  let upMessage = [];//向前unshift的数组
-  let tailMessage = [];
-  if (isTopOrBottom == 'top') {
-    if (startIndex - size <= 0) {
-      startIndex = 0;
-      endIndex = size;
-      upMessage = message.slice(startIndex, endIndex).reverse();
-      return {
-        startIndex: startIndex,
-        endIndex: endIndex,
-        hasMore: false,
-        //经过反转后的，用于往上追加的聊天记录，在滚动触顶后遍历该数组，virtualMessage.list使用unshift方法追加
-        upMessage: upMessage
-      }
-    } else {
-      let tempIndex = startIndex + 1;
-      endIndex = tempIndex;
-      startIndex = startIndex - size;
-      upMessage = message.slice(startIndex, endIndex).reverse();
-      return {
-        startIndex: startIndex,
-        endIndex: endIndex,
-        hasMore: true,
-        //同上，用于往上追加的聊天记录，在滚动触顶后遍历该数组，virtualMessage.list使用unshift方法追加
-        upMessage: upMessage
-      }
-    }
-  } else if (isTopOrBottom == 'bottom') {
-    /**
-     * 如果是向下滚动触底，则startIndex=endIndex-1,endIndex=endIndex + size,
-     * 如果endIndex+size>=message.length,endIndex=message.length,startIndex=message.length-size。
-    */
-    if (endIndex + size >= message.length) {
-      endIndex = message.length;
-      startIndex = message.length - size;
-      tailMessage = message.slice(startIndex, endIndex);
-      return {
-        startIndex: startIndex,
-        endIndex: endIndex,
-        hasMore: false,
-        //tailMessage:用于往下追加的聊天记录，向下滚动触底后，virtualMessage.list使用concat()方法合并数组
-        tailMessage: tailMessage
-      }
-    }
 
-    let tempIndex = endIndex - 1;
-    startIndex = tempIndex;
-    endIndex = endIndex + size;
-    tailMessage = message.slice(startIndex, endIndex);
-    return {
-      startIndex: startIndex,
-      endIndex: endIndex,
-      hasMore: true,
-      tailMessage: tailMessage//同上
-    }
-  }
-}
 
 
 

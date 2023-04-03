@@ -35,7 +35,6 @@ const messageSchema = new Schema({
         default: Math.round(new Date() / 1000),
         set: (val) => Math.round(new Date() / 1000)
     }
-
 })
 
 module.exports = model("Message", messageSchema);

@@ -1,34 +1,8 @@
 const Message = require('../models/message');
 const Group = require('../models/group');
-const { openAITranslate } = require('../utils/translateApis');
-const { verifyToken } = require('../utils/token');
-const { JWT_SECRET } = require('../config/index');
 const User = require('../models/user');
 
-//ignore
-// module.exports.sendMessage = async(req, res, next) => {
-//     const { sender, receiver, contentType, content } = req.body;
 
-//     const token = req.headers['authorization'].replace('Bearer ', '');
-
-//     //验证token,拿到用户id和language
-//     const payload = await verifyToken(token, JWT_SECRET);
-
-//     let translateText = await openAITranslate(content, payload.language);
-
-//     console.log('translateText', translateText);
-
-//     res.json({
-//         status: 200,
-//         message: '消息发送成功',
-//         data: {
-//             sender: sender,
-//             receiver: receiver,
-//             content: content,
-//             translateText: translateText,
-//         }
-//     });
-// };
 
 //获取用户与用户之间的聊天记录
 module.exports.mssageHistory = async (req, res, next) => {
@@ -62,35 +36,38 @@ module.exports.mssageHistory = async (req, res, next) => {
         console.log(err);
     }
 };
-//创建group，即聊天室,分群聊聊天室和单聊聊天室，先检测数据库有没有该聊天室
+
+//创建group，即聊天室,分群聊聊天室和单聊聊天室，先检测数据库有没有该单聊聊天室，群聊无所谓
 module.exports.createGroup = async (req, res, next) => {
     /**
      * 创建group前先检查有无group
      */
     try {
         const { payload } = req;
-        const { name, isOne2One } = req.body;
+        const { name, isOne2One, members } = req.body;
 
-        const tempName = name.split(" ");
-        const name2 = tempName[1] + " " + tempName[0];
-        /**
-         * 由于单聊聊天室命名规则为id相加，所以聊天室名有两种情况，
-         * 1.用户一点击用户二，则为传进来的name，则检查
-         * 2.用户二点击用户一，除了点击自传进来的name外，还需要检查uid1+" "uid2的name
-         * 
-         * 
-         */
-        //检查是否有该聊天室
-        const groupCheck1 = await Group.findOne({ name: name });
-        const groupCheck2 = await Group.findOne({ name: name2 });
+        //单聊聊天室
+        if (isOne2One) {
+            const tempName = name.split(" ");
+            const name2 = tempName[1] + " " + tempName[0];
+            /**
+             * 由于单聊聊天室命名规则为id相加，所以聊天室名有两种情况，
+             * 1.用户一点击用户二，则为传进来的name，则检查
+             * 2.用户二点击用户一，除了点击自传进来的name外，还需要检查uid1+" "uid2的name
+             * 
+             * 
+             * 
+             */
+            //检查是否有该聊天室
+            const groupCheck1 = await Group.findOne({ name: name });
+            const groupCheck2 = await Group.findOne({ name: name2 });
 
-        const membersIds = name.split(" ");
+            const membersIds = name.split(" ");
 
-        //如果都没有，为true，则创建group
-        const finalChecke = (groupCheck1 == null && groupCheck2 == null) ? true : false;
+            //如果都没有，为true，则创建group
+            const finalChecke = (groupCheck1 == null && groupCheck2 == null) ? true : false;
 
-        if (payload.uid && finalChecke) {
-            if (isOne2One == 1) {
+            if (payload.uid && finalChecke) {
                 const group1 = new Group({
                     name: name,
                     members: membersIds,
@@ -106,28 +83,29 @@ module.exports.createGroup = async (req, res, next) => {
                     message: 'one2one Successful|单聊创建成功',
                 });
             } else {
-                const group2 = new Group({
-                    name: name,
-                    members: membersIds, //群聊待定
-                    isOne2One: 0,
-                    createTime: new Date()
-                });
-
-                await group2.save();
                 res.json({
                     status: 200,
-                    group: group2,
-                    message: 'Group Successful|群聊创建成功',
+                    message: "room已存在|Existed",
+                    group: groupCheck1 == null ? groupCheck2 : groupCheck1
                 });
             }
-
         } else {
+            //创建群聊
+            const group2 = new Group({
+                name: name,
+                members: members,
+                isOne2One: 0,
+                createTime: new Date()
+            });
+
+            await group2.save();
             res.json({
                 status: 200,
-                message: "room已存在|Existed",
-                group: groupCheck1 == null ? groupCheck2 : groupCheck1
+                group: group2,
+                message: 'Group Successful|群聊创建成功',
             });
         }
+
     } catch (err) {
         console.log(err);
     }
@@ -135,7 +113,6 @@ module.exports.createGroup = async (req, res, next) => {
 
 //获取消息预览列表
 module.exports.notifyList = async (req, res, next) => {
-
     const { payload } = req;
     if (payload.uid) {
 
@@ -150,36 +127,57 @@ module.exports.notifyList = async (req, res, next) => {
 
             const group = await Group.find({
                 members: { $in: [payload.uid] },
-                isOne2One: 1
+                // isOne2One: 1
             });
 
             console.log("group:", group);
             //用来装所有取得过联系的好友的id
             let frendsId = [];
 
-            //拿到所有取得过联系的好友的id
+            //拿到所有取得过联系的好友的id,目的是通过id拿到对应的用户信息
             group.forEach((item) => {
-                //单聊逻辑，群聊待定
+                //如果是单聊frendsId就就是member非payload.uid的那个用户
+                //如果是群聊frendsId就是groupID
+
                 if (item.members.length == 2) {
                     item.members.forEach((member) => {
                         if (member != payload.uid) {
                             frendsId.push(member);
                         }
                     });
+                } else {
+                    frendsId.push(item._id);
                 }
-                //单聊逻辑，群聊待定
             });
 
             //查找用户信息
+            // let frendsData = [];
+            // for (let i = 0; i < frendsId.length; i++) {
+            //     const user = await User.findOne({ _id: frendsId[i] }).select({
+            //         password: 0,
+            //     });
+
+            //     //toObject()方法将对象转换为json对象便于为从mongoDB里取的数据添加键值对
+            //     frendsData.push(user.toObject() == undefined ? {} : user.toObject());
+            // }
+
             let frendsData = [];
             for (let i = 0; i < frendsId.length; i++) {
-                const user = await User.findOne({ _id: frendsId[i] }).select({
+                const userPromise = User.findOne({ _id: frendsId[i] }).select({
                     password: 0,
                 });
+                const groupPromise = Group.findOne({ _id: frendsId[i] });
 
-                //toObject()方法将对象转换为json对象便于为从mongoDB里取的数据添加键值对
-                frendsData.push(user.toObject() == undefined ? {} : user.toObject());
+                const [user, group] = await Promise.all([userPromise, groupPromise]);
+                if (user) {
+                    console.log("user:", user);
+                    frendsData.push(user.toObject()); //toObject()方法将对象转换为json对象便于为从mongoDB里取的数据添加键值对
+                } else if (group) {
+                    console.log("group:", group);
+                    frendsData.push(group.toObject());
+                }
             }
+
 
 
             /**
@@ -213,7 +211,7 @@ module.exports.notifyList = async (req, res, next) => {
             res.json({
                 status: 200,
                 frends: frendsData,
-                notifys: notifys,
+                // notifys: notifys,
             })
         } catch (err) {
             console.log(err);
