@@ -61,7 +61,7 @@ const io = require('socket.io')(httpServer, {
 });
 
 //接收客户端的连接，并获取传过来的token
-io.use(async(socket, next) => {
+io.use(async (socket, next) => {
     try {
         if (socket.handshake.query.token) {
             const token = JSON.parse(socket.handshake.query.token)['token'];
@@ -85,7 +85,7 @@ io.use(async(socket, next) => {
 });
 
 //连接到客户端的socket，并监听自定义事件
-io.on('connection', async(socket) => {
+io.on('connection', async (socket) => {
     console.log('连接到客户端的socket');
     console.log('socket.Id:', socket.id);
     // try {
@@ -102,7 +102,7 @@ io.on('connection', async(socket) => {
     // }
 
     //监听客户端的disconnect事件，断开连接后更新数据库的isOnline状态为0,socketId为空字符串
-    socket.on('disconnect', async() => {
+    socket.on('disconnect', async () => {
         await User.updateOne({ _id: socket.uid }, {
             $set: {
                 isOnline: 0,
@@ -112,112 +112,143 @@ io.on('connection', async(socket) => {
     });
 
     //加入群组
-    socket.on('join room', (goupId) => {
-        socket.join(goupId);
-    });
+    // socket.on('join room', (goupId) => {
+    //     socket.join(goupId);
+    // });
 
     //离开群组
-    socket.on('leave room', (goupId) => {
-        socket.leave(goupId);
-    });
+    // socket.on('leave room', (goupId) => {
+    //     socket.leave(goupId);
+    // });
 
     //监听客户端的message发消息事件
-    socket.on('message', async(val, fn) => {
+    socket.on('message', async (val, fn) => {
         console.log('message数据:', val.sendData);
 
         const { sendData } = val;
 
-        //从数据库拿接收者的信息，获取到接收者的socket.id
-        const receiverDatas = await User.findById({ _id: sendData.receiver });
-        console.log('receiverDatas接收者数据:', receiverDatas);
-        console.log('receiverDatas接收者数据socketId:', receiverDatas.socketId);
+        //通过sendData的isOne2One字段判断是否为群聊，单聊群聊分开处理
+        let isOne2One = sendData.isOne2One;
 
-        // 从数据库拿发送者的信息，获取发送者的language，方便与接收者的作比较，如果两者的不同才进行翻译
-        // const senderDatas = await User.findById({ _id: sendData.sender });
+        //处理单聊
+        if (isOne2One) {
+            //从数据库拿接收者的信息，获取到接收者的socket.id
+            const receiverDatas = await User.findById({ _id: sendData.receiver });
+            console.log('receiverDatas接收者数据:', receiverDatas);
+            console.log('receiverDatas接收者数据socketId:', receiverDatas.socketId);
 
-        //如果对方的language和自己的language不一样才进行翻译
-        if (sendData.receiverLanguage != sendData.senderLanguage) {
-            try {
-                //使用openai进行翻译
-                const translatedContent = await openAITranslate(sendData.content, sendData.receiverLanguage);
-                console.log('原文：', sendData.content);
-                console.log('翻译文本：', translatedContent);
-                //写入数据库
-                const message = new Message({
-                    sender: sendData.sender,
-                    receiver: sendData.receiver,
-                    contentType: sendData.contentType,
-                    content: sendData.content,
-                    translatedContent: translatedContent,
-                    group: sendData.groupId,
-                    isRead: 0,
-                    updateAt: new Date()
-                });
-                await message.save();
-                // return message;
-                // 发送成功后再查找数据库把最新的聊天记录返回过去
-                const messages = await Message.find({
-                    $or: [{
+            // 从数据库拿发送者的信息，获取发送者的language，方便与接收者的作比较，如果两者的不同才进行翻译
+            // const senderDatas = await User.findById({ _id: sendData.sender });
+
+            //如果对方的language和自己的language不一样才进行翻译
+            if (sendData.receiverLanguage != sendData.senderLanguage) {
+                try {
+                    //使用openai进行翻译
+                    const translatedContent = await openAITranslate(sendData.content, sendData.receiverLanguage);
+                    console.log('原文：', sendData.content);
+                    console.log('翻译文本：', translatedContent);
+                    //写入数据库
+                    const message = new Message({
                         sender: sendData.sender,
-                        receiver: sendData.receiver
-                    }, {
-                        sender: sendData.receiver,
-                        receiver: sendData.sender
-                    }]
-                });
-                //把写入的聊天记录和发送者id返回过去,方便客户端更新状态
-                fn(messages);
+                        receiver: sendData.receiver,
+                        contentType: sendData.contentType,
+                        content: sendData.content,
+                        translatedContent: translatedContent,
+                        group: sendData.groupId,
+                        isRead: 0,
+                        updateAt: new Date()
+                    });
+                    await message.save();
+                    // return message;
+                    // 发送成功后再查找数据库把最新的聊天记录返回过去
+                    const messages = await Message.find({
+                        $or: [{
+                            sender: sendData.sender,
+                            receiver: sendData.receiver
+                        }, {
+                            sender: sendData.receiver,
+                            receiver: sendData.sender
+                        }]
+                    });
+                    //把写入的聊天记录和发送者id返回过去,方便客户端更新状态
+                    fn(messages);
 
-                //如果对方在线就直接发送过去
-                if (receiverDatas.socketId != '') {
-                    socket.to(receiverDatas.socketId).emit('message', {
-                        message: 'go get update',
-                        data: messages
-                    })
+                    //如果对方在线就直接发送过去
+                    if (receiverDatas.socketId != '') {
+                        socket.to(receiverDatas.socketId).emit('message', {
+                            message: 'go get update',
+                            data: messages
+                        })
+                    }
+
+                } catch (err) {
+                    console.error(err);
                 }
 
-            } catch (err) {
-                console.error(err);
-            }
+            } else {
+                try {
+                    //如果对方母语和自己母语一样就直接写入数据库
+                    const message2 = new Message({
+                        sender: sendData.sender,
+                        receiver: sendData.receiver,
+                        contentType: sendData.contentType,
+                        content: sendData.content,
+                        group: sendData.groupId,
+                        // translatedContent: '',
+                        isRead: 0,
+                        updateAt: new Date()
+                    });
+                    await message2.save();
+                    // return message;
+                    // 发送成功后再查找数据库把最新的聊天记录返回过去
+                    const messages2 = await Message.find({
+                        $or: [{
+                            sender: sendData.sender,
+                            receiver: sendData.receiver
+                        }, {
+                            sender: sendData.receiver,
+                            receiver: sendData.sender
+                        }]
+                    });
 
+                    fn(messages2); //成功后在客户端执行的回调，方便用来传值
+
+                    if (receiverDatas.socketId != '') {
+                        socket.to(receiverDatas.socketId).emit('message', {
+                            message: 'go get update',
+                            data: messages2
+                        })
+                    }
+                } catch (err) {
+                    console.error(err);
+                }
+            }
         } else {
             try {
-                //写入数据库
-                const message2 = new Message({
-                    sender: sendData.sender,
-                    receiver: sendData.receiver,
-                    contentType: sendData.contentType,
-                    content: sendData.content,
-                    group: sendData.groupId,
-                    // translatedContent: '',
-                    isRead: 0,
-                    updateAt: new Date()
-                });
-                await message2.save();
-                // return message;
-                // 发送成功后再查找数据库把最新的聊天记录返回过去
-                const messages2 = await Message.find({
-                    $or: [{
-                        sender: sendData.sender,
-                        receiver: sendData.receiver
-                    }, {
-                        sender: sendData.receiver,
-                        receiver: sendData.sender
-                    }]
-                });
+                //处理群聊
+                console.log('members:', sendData.members);
+                //拿到members的个人信息
+                const users = await Promise.all(sendData.members.map(async (item) => {
+                    const user = await User.findById({ _id: item });
+                    return user;
+                }));
+                console.log('users:', users);
 
-                fn(messages2); //成功后在客户端执行的回调，方便用来传值
+                //利用member对应的母语进行翻译
+                const translate = await Promise.all(users.map(async (item) => {
+                    //sender的母语和member的母语不一样才翻译
+                    console.log('item:', item.language);
 
-                if (receiverDatas.socketId != '') {
-                    socket.to(receiverDatas.socketId).emit('message', {
-                        message: 'go get update',
-                        data: messages2
-                    })
-                }
+                }))
+
             } catch (err) {
-                console.error(err);
+                console.log(err);
             }
+
+
         }
+
+
     });
 
 

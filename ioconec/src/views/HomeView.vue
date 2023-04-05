@@ -53,8 +53,7 @@ socket.on('message', async (data: any) => {
          * 如果用户打开的是与发送来消息的人的聊天窗口，才执行以下操作
          * sender==roomView.receiverInfo._id
         */
-        //同时向数据库更新已读状态
-        // await updateMessageByIds(data.data[data.data.length - 1]._id);
+        //收到消息后，当页面本身就是触底的时，才再次触发触底
         if (chatBody.value.scrollTop + chatBody.value.clientHeight >= chatBody.value.scrollHeight - 4) {
             //push进去，实现触底效果
             message.list.push(data.data[data.data.length - 1]);
@@ -69,7 +68,7 @@ socket.on('message', async (data: any) => {
 
         await getNotifyList();//获取最新的信息预览通知
         // console.log("roomView.receiverInfo._id:", roomView.receiverInfo._id);
-        //收到消息后，当页面本身就是触底的时，才再次触发触底
+
 
 
     } else {
@@ -127,7 +126,11 @@ const onSearch = async (isSearchingForMessage = 1) => {
                 let datas: any = await search(state.searchContent, state.searchPage, 10);
                 console.log('搜索：', datas);
                 if (datas.status == 200) {
-                    state.searchList = datas.users;
+                    //过滤掉自己
+                    let excepter = datas.users.filter((item: any) => {
+                        return item._id != userStore.userInfo._id;
+                    });
+                    state.searchList = excepter;
                     state.searchDatas = {
                         currentPage: datas.currentPage,
                         total: datas.total,
@@ -138,7 +141,12 @@ const onSearch = async (isSearchingForMessage = 1) => {
 
                 let datas: any = await search(addMembers.searchContent, addMembers.searchPage, 3);
                 if (datas.status == 200) {
-                    addMembers.searchList = datas.users;
+                    //过滤掉自己
+                    let excepter = datas.users.filter((item: any) => {
+                        return item._id != userStore.userInfo._id;
+                    });
+
+                    addMembers.searchList = excepter;
                     addMembers.searchDatas = {
                         currentPage: datas.currentPage,
                         total: datas.total,
@@ -173,9 +181,7 @@ const goChat = async (receiverInfo: any, isNewChat: number, index: number) => {
 
     //如果是新建聊天就创建聊天室
     if (isNewChat === 1) {
-
         try {
-
             //清空聊天室消息
             message.list = [];
             virtualMessage.list = [];
@@ -198,11 +204,11 @@ const goChat = async (receiverInfo: any, isNewChat: number, index: number) => {
             console.log('是群聊');
 
             //更新群组id，更新之前需要离开上一次的
-            let groupId = groupView.groupId
-            socket.emit('leave room', groupId);
+            // let groupId = groupView.groupId
+            // socket.emit('leave room', groupId);
             groupView.groupId = receiverInfo._id;
             //更新后的群组id加入聊天室
-            socket.emit('join room', receiverInfo._id);
+            // socket.emit('join room', receiverInfo._id);
 
             //清空聊天室消息， 清空后再重新获取聊天记录
             message.list = [];
@@ -280,19 +286,43 @@ const onSend = async () => {
     console.log("roomView.receiverInfo:", roomView.receiverInfo);
     if (roomView.content != '') {
 
-        //群聊逻辑
+        //处理群聊
         if (roomView.receiverInfo.isOne2One == 0) {
             console.log('发送群聊消息');
-            /**
-             * 群聊需要客户端处理翻译，
-             * 
-            */
 
-        } else {
-            //单聊逻辑
+            //群组内除自己之外的members
+            const exceptMembers: any = roomView.receiverInfo.members.filter((item: any) => {
+                return item != userStore.userInfo._id;
+            });
+            console.log('exceptMembers:', exceptMembers);
+
+            const { token, ...exceptToken } = userStore.userInfo;
+            console.log('exceptToken:', exceptToken);
 
             const sendData = {
-                // isGroup: 0,//是否群组，默认否,如果是单聊就服务端处理翻译
+                isOne2One: 0,//群聊
+                sender: userStore.userInfo._id,//自己的id
+                senderInfo: exceptToken,//自己的信息
+                senderLanguage: userStore.userInfo.language,//自己的母语
+                receiver: roomView.receiverInfo._id,//群组id
+                members: exceptMembers,//其它群组成员id（除自己外）
+                contentType: 1,//1:文本，2：图片,暂时默认写死1，后期再根据实际做判断
+                content: roomView.content,//发送的信息内容
+                isRead: 0,//0：未读，1：已读,默认未读
+                groupId: roomView.receiverInfo._id
+            }
+            message.list.push(sendData);
+            virtualMessage.list.push(sendData);
+            roomView.content = '';
+            scrollToBottom(10);
+            //发送消息给服务端
+            socket.emit('message', { sendData }, (data: any) => {
+                console.log('发送成功后服务器返回来的:', data);
+            });
+        } else {
+            //处理单聊
+            const sendData = {
+                isOne2One: 1,//单聊
                 sender: userStore.userInfo._id,//自己的id
                 receiver: roomView.receiverInfo._id,//要发送信息给那个人的id
                 contentType: 1,//1:文本，2：图片,暂时默认写死1，后期再根据实际做判断
@@ -723,17 +753,18 @@ const onCreate = async () => {
 
 //监听虚拟列表，如果发生改变，并且roomView.receiverInfo.isOne2One不等于0，
 //说明离开了群聊，需要告诉服务器切断soket上的群聊
+//每条消息需要单独处理单独分发，所以弃用joinRoom和leaveRoom
 watch(
     () => virtualMessage.list,
     (value, oldValue) => {
-        let isLeave = roomView.receiverInfo ? 1 : 0;
-        if (isLeave) {
+        // let isLeave = roomView.receiverInfo ? 1 : 0;
+        // if (isLeave) {
 
-            if (roomView.receiverInfo.isOne2One != 0) {
+        //     if (roomView.receiverInfo.isOne2One != 0) {
 
-                socket.emit('leave room', groupView.groupId);
-            }
-        }
+        //         socket.emit('leave room', groupView.groupId);
+        //     }
+        // }
     },
     { immediate: true }
 )
