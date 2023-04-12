@@ -11,6 +11,7 @@ const messageSchema = new Schema({
         ref: 'User',
         required: true
     },
+
     contentType: { //消息内容的类型，1=text,2=image
         type: Number,
         default: 1
@@ -21,12 +22,25 @@ const messageSchema = new Schema({
     translatedContent: { //翻译消息内容
         type: String,
     },
+    translatedLanguage: { //翻译语言
+        type: String
+    },
     group: { //群组
         type: Schema.Types.ObjectId, //群组id
         ref: 'Group',
         required: true
     },
-    isRead: { //是否已读
+    readStatus: [{ //群组的是否已读
+        member: {
+            type: Schema.Types.ObjectId,
+            ref: 'User',
+        },
+        isRead: {
+            type: Number,
+            default: 0
+        }
+    }],
+    isRead: { //单聊的是否已读
         type: Number,
         default: 0
     },

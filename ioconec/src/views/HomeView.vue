@@ -6,7 +6,7 @@ export default {
 </script>
 <script setup lang="ts">
 import { ref, reactive, onMounted, watch } from 'vue';
-import { search, getHistory, notifyList, createGroup, updateMessageStatus, updateMessageByIds } from '../https/index';
+import { search, getHistory, notifyList, createGroup, updateMessageByIds } from '../https/index';
 import { useUserStore } from '@/stores/modules/user';
 import { baseURL } from '../privateKeys/index';
 import io from 'socket.io-client';
@@ -16,10 +16,8 @@ import { initViretualMesssage, sliceMessage } from '../utils/handleMessageList';
 import TypingText from '@/components/TypingText.vue';
 import loding from '../components/Loading.vue';
 
-
 //实例化userStore
 const userStore: any = useUserStore();
-
 
 //连接服务器socket.io，并把token传给服务器，以便服务器更新用户信息（isLogin、socketId）
 const token = window.sessionStorage.getItem('token') == null ? '' : window.sessionStorage.getItem('token')!;
@@ -45,38 +43,60 @@ socket.on('disconnect', () => {
 });
 
 socket.on('message', async (data: any) => {
-    console.log('服务器监听到message,转发过来的数据:', data.data[data.data.length - 1]);
+    console.log('服务器监听到message,转发过来的数据:', data.data[0], userStore.userInfo._id);
+    try {
+        if (data.message === 'go get update' && data.data[0].receiver == userStore.userInfo._id && roomView.close == 0) {
+            /**处理单聊
+             * 
+             * 如果用户打开的是与发送来消息的人的聊天窗口，才执行以下操作
+             * sender==roomView.receiverInfo._id,
+             * 或者receiver==userStore.userInfo._id
+            */
+            //收到消息后，当页面本身就是触底的时，才再次触发触底
+            console.log('单聊消息来了', data.data[0].group, roomView.receiverInfo._id);
 
+            if (chatBody.value.scrollTop + chatBody.value.clientHeight >= chatBody.value.scrollHeight - 15 && roomView.isOne2One) {
+                //push进去，实现触底效果
+                message.list.push(data.data[0]);
+                virtualMessage.list.push(data.data[0]);
+                // virtualMessage.list = message.list.slice(message.list.length - 20, message.list.length);
+                scrollToBottom(10);
+            }
 
-    if (data.message === 'go get update' && data.data[data.data.length - 1].sender == roomView.receiverInfo?._id && roomView.close == 0) {
-        /**
-         * 如果用户打开的是与发送来消息的人的聊天窗口，才执行以下操作
-         * sender==roomView.receiverInfo._id
-        */
-        //收到消息后，当页面本身就是触底的时，才再次触发触底
-        if (chatBody.value.scrollTop + chatBody.value.clientHeight >= chatBody.value.scrollHeight - 4) {
-            //push进去，实现触底效果
-            message.list.push(data.data[data.data.length - 1]);
-            virtualMessage.list.push(data.data[data.data.length - 1]);
-            // virtualMessage.list = message.list.slice(message.list.length - 20, message.list.length);
-            scrollToBottom(10);
+            //更新历史消息列表
+            await myGetHistory(data.data[0].sender);
+
+            await getNotifyList();//获取最新的信息预览通知
+            // console.log("roomView.receiverInfo._id:", roomView.receiverInfo._id);
+
+        } else if (roomView.isOne2One != 1) {
+            //处理群聊
+            // console.log('群聊消息来了', data.data[0].group, roomView.receiverInfo._id);
+            if (chatBody.value.scrollTop + chatBody.value.clientHeight >= chatBody.value.scrollHeight - 15 && roomView.isOne2One != 1) {
+                //push进去，实现触底效果
+                // message.list.push(data.data[0]);
+                // console.log('data.data[0].readStatus:', data.data[0].readStatus);
+
+                virtualMessage.list.push(data.data[0]);
+
+                scrollToBottom(10);
+            }
+
+            //更新历史消息列表
+            await myGetHistory(data.data[0].group);
+
+            await getNotifyList();//获取最新的信息预览通知
+        } else {
+            await getNotifyList();//获取最新的信息预览通知
         }
-
-        //更新历史消息列表
-        await myGetHistory(data.data[data.data.length - 1].sender);
-
-
-        await getNotifyList();//获取最新的信息预览通知
-        // console.log("roomView.receiverInfo._id:", roomView.receiverInfo._id);
-
-
-
-    } else {
+    } catch (e) {
+        console.log(e);
         await getNotifyList();//获取最新的信息预览通知
     }
+
 });
 
-console.log('in home page,userInfo:', userStore.userInfo);
+// console.log('in home page,userInfo:', userStore.userInfo);
 
 const state: any = reactive({
     searchContent: '',
@@ -98,6 +118,7 @@ const roomView: any = reactive({
     showToBottomButton: false,//控制是否显示点击触底按钮和未读消息计数
     notReadCount: 0,//未读数量
     index: 0,//当前聊天窗口对应的notify循环列表的索引
+    isOne2One: 1,//是否为群聊
 });
 
 //群聊窗口数据
@@ -124,7 +145,7 @@ const onSearch = async (isSearchingForMessage = 1) => {
             if (isSearchingForMessage == 1) {
                 state.searchPage = 1;
                 let datas: any = await search(state.searchContent, state.searchPage, 10);
-                console.log('搜索：', datas);
+                // console.log('搜索：', datas);
                 if (datas.status == 200) {
                     //过滤掉自己
                     let excepter = datas.users.filter((item: any) => {
@@ -154,8 +175,6 @@ const onSearch = async (isSearchingForMessage = 1) => {
                     }
                 }
             }
-
-
         } catch (e) {
             console.log(e);
         }
@@ -163,21 +182,20 @@ const onSearch = async (isSearchingForMessage = 1) => {
 
 };
 
-
 //搜索用户
 
 //点击搜索列表或聊天列表后，开启单聊聊天室
 //三个参数：对方信息，是否为新创建聊天室，notify卡片循环列表对应的下标
 const goChat = async (receiverInfo: any, isNewChat: number, index: number) => {
 
+    roomView.content = '';
 
     roomView.close = 0;//是否关闭聊天窗口
     roomView.receiverInfo = receiverInfo;
+
     roomView.index = index;//拿到notify卡片循环列表对应的下标，用于滚动事件中判断是否需要触底更新的引路
 
-    console.log('点击后对应的用户信息:', receiverInfo);
-
-
+    console.log('点击后对应的用户信息:', receiverInfo, index);
 
     //如果是新建聊天就创建聊天室
     if (isNewChat === 1) {
@@ -202,24 +220,80 @@ const goChat = async (receiverInfo: any, isNewChat: number, index: number) => {
         //判断是否为群聊，如果点开的是群聊。让当前客户端加入聊天室
         if (receiverInfo.isOne2One == 0) {
             console.log('是群聊');
+            roomView.isOne2One = 0;
+
 
             //更新群组id，更新之前需要离开上一次的
-            // let groupId = groupView.groupId
-            // socket.emit('leave room', groupId);
+            let groupId = groupView.groupId
+            socket.emit('leave room', groupId);
             groupView.groupId = receiverInfo._id;
             //更新后的群组id加入聊天室
-            // socket.emit('join room', receiverInfo._id);
+            socket.emit('join room', receiverInfo._id);
 
             //清空聊天室消息， 清空后再重新获取聊天记录
             message.list = [];
             virtualMessage.list = [];
 
+            await myGetHistory(groupView.groupId);//获取聊天历史
+
+            //初始化最终渲染的聊天记录，返回初始化后的要显示的聊天记录和下标
+            const { _virtualMessage, _startIndex, _endIndex } = initViretualMesssage(message.list, 20)
+            virtualMessage.list = _virtualMessage;
+            virtualMessage.startIndex = _startIndex;
+            virtualMessage.endIndex = _endIndex;
+
+            //获取未读消息
+            //获取未读消息
+
+            // roomView.notReadCount = notReadCount.length;
+            const notReadCount = virtualMessage.list.filter((item: any) => {
+                return item.isRead == 0;
+            });
+            // roomView.notReadCount = notReadCount.length;
+            // console.log('未读消息：', notReadCount);
+
+
+            //如果最新的一条消息的发送者是自己的id就直接触底
+            if (message.list[message.list.length - 1].sender == userStore.userInfo._id) {
+                roomView.showToBottomButton = false;
+                // roomView.notReadCount = 0;
+                scrollToBottom(10);
+            } else if (notReadCount.length == 0) {
+                //如果最新的消息的接收者是自己，但notReadCount.length=0，同样直接触底
+                scrollToBottom(10);
+            } else {
+                //如果最新的消息的接收者是自己,并且notReadCount！=0，就scroll到最前面那条未读消息的位置
+                // roomView.notReadCount = notReadCount.length;
+                roomView.showToBottomButton = notReadCount.length == 0 ? false : true;
+
+                //按时间戳降序排序，再过滤掉已读的，取第一个,就是对应的消息的dom的id,
+                //因为在渲染的时候就把id动态绑定上去了，
+                //也就是说：message._id = DOM的id
+                const scrollToRead = virtualMessage.list.filter((item: any) => { return item.isRead == 0 })[0]._id;
+                // console.log("message.list.filter((item: any) => { return item.isRead == 0 }):", message.list.filter((item: any) => { return item.isRead == 0 }));
+
+                // console.log("scrollToRead:", scrollToRead);
+
+                //获取dom，在setTimeout内的目的是让dom加载完毕后再去获取
+                setTimeout(() => {
+                    let firstNotReadDom: any = document.getElementById(scrollToRead);
+                    // console.log('firstNotReaDdom:', firstNotReadDom);
+                    if (firstNotReadDom) {
+                        //直接使用scrollIntoView()方法
+                        firstNotReadDom.scrollIntoView();
+                    }
+                }, 10);
+            }
+
         } else {
-
             try {
-                console.log('非新创建聊天且不是群聊', roomView.receiverInfo.notify);
-
+                console.log('不是群聊', roomView.receiverInfo);
+                roomView.isOne2One = 1;
                 roomView.groupId = roomView.receiverInfo.notify.group;//对应的groupId更新过去
+
+                //清空聊天室消息， 清空后再重新获取聊天记录
+                message.list = [];
+                virtualMessage.list = [];
 
                 await myGetHistory(roomView.receiverInfo._id);//获取聊天历史
 
@@ -234,7 +308,7 @@ const goChat = async (receiverInfo: any, isNewChat: number, index: number) => {
                     return item.isRead == 0;
                 });
                 // roomView.notReadCount = notReadCount.length;
-                console.log('未读消息：', notReadCount);
+                // console.log('未读消息：', notReadCount);
 
                 //如果最新的一条消息的接收者不是自己的id就直接触底
                 if (message.list[message.list.length - 1].receiver != userStore.userInfo._id) {
@@ -255,12 +329,12 @@ const goChat = async (receiverInfo: any, isNewChat: number, index: number) => {
                     const scrollToRead = virtualMessage.list.filter((item: any) => { return item.isRead == 0 })[0]._id;
                     // console.log("message.list.filter((item: any) => { return item.isRead == 0 }):", message.list.filter((item: any) => { return item.isRead == 0 }));
 
-                    console.log("scrollToRead:", scrollToRead);
+                    // console.log("scrollToRead:", scrollToRead);
 
                     //获取dom，在setTimeout内的目的是让dom加载完毕后再去获取
                     setTimeout(() => {
                         let firstNotReadDom: any = document.getElementById(scrollToRead);
-                        console.log('firstNotReaDdom:', firstNotReadDom);
+                        // console.log('firstNotReaDdom:', firstNotReadDom);
                         if (firstNotReadDom) {
                             //直接使用scrollIntoView()方法
                             firstNotReadDom.scrollIntoView();
@@ -269,7 +343,6 @@ const goChat = async (receiverInfo: any, isNewChat: number, index: number) => {
                 }
                 // }
 
-                // getNotifyList();
 
             } catch (err) {
                 console.log(err);
@@ -283,8 +356,9 @@ const goChat = async (receiverInfo: any, isNewChat: number, index: number) => {
 
 //点击发送消息
 const onSend = async () => {
-    console.log("roomView.receiverInfo:", roomView.receiverInfo);
+    // console.log("roomView.receiverInfo:", roomView.receiverInfo);
     if (roomView.content != '') {
+
 
         //处理群聊
         if (roomView.receiverInfo.isOne2One == 0) {
@@ -296,20 +370,21 @@ const onSend = async () => {
             });
             console.log('exceptMembers:', exceptMembers);
 
+            //解构的方法取出对象内除某个字段外的其它所有字段
             const { token, ...exceptToken } = userStore.userInfo;
             console.log('exceptToken:', exceptToken);
 
             const sendData = {
                 isOne2One: 0,//群聊
                 sender: userStore.userInfo._id,//自己的id
-                senderInfo: exceptToken,//自己的信息
+                userInfo: exceptToken,//自己的信息
                 senderLanguage: userStore.userInfo.language,//自己的母语
                 receiver: roomView.receiverInfo._id,//群组id
                 members: exceptMembers,//其它群组成员id（除自己外）
                 contentType: 1,//1:文本，2：图片,暂时默认写死1，后期再根据实际做判断
                 content: roomView.content,//发送的信息内容
                 isRead: 0,//0：未读，1：已读,默认未读
-                groupId: roomView.receiverInfo._id
+                group: roomView.receiverInfo._id
             }
             message.list.push(sendData);
             virtualMessage.list.push(sendData);
@@ -317,7 +392,7 @@ const onSend = async () => {
             scrollToBottom(10);
             //发送消息给服务端
             socket.emit('message', { sendData }, (data: any) => {
-                console.log('发送成功后服务器返回来的:', data);
+                // console.log('发送成功后服务器返回来的:', data);
             });
         } else {
             //处理单聊
@@ -342,7 +417,7 @@ const onSend = async () => {
             socket.emit('message', { sendData }, (data: any) => {
                 //发送成功的回调，可以写查找历史记录的业务，比如message.list = data;
                 // message.list = data;
-                console.log('发送成功后服务器返回来的:', data);
+                // console.log('发送成功后服务器返回来的:', data);
             });
         }
 
@@ -357,7 +432,25 @@ const myGetHistory = async (receiver: any) => {
         let datas: any = await getHistory(receiver);
         if (datas.status === 200) {
             message.list = datas.datas.message;
-            console.log('聊天历史记录10086：', datas);
+            // console.log('聊天历史记录10086：', message.list[0]);
+
+            //如果是群聊，需要处理readStatus问题
+            if (message.list[0].group == message.list[0].receiver) {
+
+                //处理群聊的readStatus问题
+                message.list.forEach((item: any) => {
+                    let index = item.readStatus.findIndex((item2: any) => {
+                        return item2.member == userStore.userInfo._id;
+                    })
+                    if (index != -1) {
+                        item.isRead = item.readStatus[index].isRead;
+                    } else {
+                        //说明自己是sender，既然自己是sender，说明isRead为1
+                        item.isRead = 1;
+                    }
+                })
+            }
+
         }
     } catch (err) {
         console.log(err);
@@ -372,11 +465,12 @@ const getNotifyList = async () => {
         let datas: any = await notifyList();
         if (datas.status == 200) {
             console.log('notify list:', datas);
-            state.notifyList = datas;
-            state.notifyList.frends.sort((a: any, b: any) => {
-                return b.notify.updateAt - a.notify.updateAt
+            datas.frends.sort((a: any, b: any) => {
+                return (b.notify?.updateAt || 0) - (a.notify?.updateAt || 0);
             })
-            roomView.notReadCount = state.notifyList.frends[roomView.index].notify.notreadCount;
+            state.notifyList = datas;
+
+            // roomView.notReadCount = state.notifyList.frends[roomView.index].notify.notreadCount;
         }
 
     } catch (err) {
@@ -384,15 +478,6 @@ const getNotifyList = async () => {
     }
 };
 
-//更新已读状态
-const postUpdateMessageStatus = async () => {
-    try {
-        let datas: any = await updateMessageStatus(roomView.receiverInfo._id);
-        console.log('更新已读状态：', datas);
-    } catch (err) {
-        console.log(err);
-    }
-}
 
 //聊天界面容器触底方法
 const chatBody: any = ref(null);
@@ -402,7 +487,6 @@ const scrollToBottom = (messageLength: number = 10) => {
     如果消息长度大于20,过渡效果猛烈点，不要让页面滚动得太慢了
     */
     if (messageLength < 20) {
-        // postUpdateMessageStatus();
         const timer = setInterval(() => {
             chatBody.value.scrollTop += 30;
             if (chatBody.value.scrollTop + chatBody.value.clientHeight >=
@@ -416,7 +500,6 @@ const scrollToBottom = (messageLength: number = 10) => {
         //直接触底
         chatBody.value.scrollTop = chatBody.value.scrollHeight;
     }
-
 }
 //聊天界面容器触底方法
 
@@ -430,7 +513,6 @@ const virtualMessage: any = reactive({
     size: 20
 });
 //用于对聊天记录的性能优化
-
 
 // 当聊天界面滚动
 //用于监测停止滚动的定时器
@@ -502,24 +584,22 @@ const chatBodyScroll = () => {
             * 但是如果是自己发送的，并且不更新，那么计数和向下按钮也会为自己显示，
             * 所以，在点击消息预览后，如果最新的一条消息的接收者不是自己的id就直接触底，具体在gochat()方法内
            */
-
-
         //如果滚动触底，隐藏按钮，计数归零  
         if (chatBody.value.scrollTop + chatBody.value.clientHeight >= chatBody.value.scrollHeight - 0.5) {
             roomView.showToBottomButton = false;
 
             conut++;//累加计数，目的是加入触底后只执行一次触底更新的代码
-            console.log("conut1=", conut, virtualMessage.hasBottomMore);
+            // console.log("conut1=", conut, virtualMessage.hasBottomMore);
 
             if (virtualMessage.hasBottomMore && conut == 1) {
-                console.log("conut=", conut);
+                // console.log("conut=", conut);
 
-                console.log(`chatBody.value.scrollTop+chatBody.value.clientHeight=${chatBody.value.scrollTop + chatBody.value.clientHeight},chatBody.value.scrollHeight=${chatBody.value.scrollHeight}`);
+                // console.log(`chatBody.value.scrollTop+chatBody.value.clientHeight=${chatBody.value.scrollTop + chatBody.value.clientHeight},chatBody.value.scrollHeight=${chatBody.value.scrollHeight}`);
                 let virtualDom = document.getElementById(virtualMessage.list[virtualMessage.size - 1]._id);
                 // setTimeout(() => {
-                console.log("virtualDom:", virtualDom);
+                // console.log("virtualDom:", virtualDom);
 
-                console.log("virtualMessage.list:", virtualMessage.list);
+                // console.log("virtualMessage.list:", virtualMessage.list);
 
                 if (virtualMessage.list.length == virtualMessage.size && virtualDom) {
                     const { _sliceMessage, _startIndex, _endIndex, _hasBottomMore, _hasTopMore } = sliceMessage('bottom', virtualMessage.hasTopMore, virtualMessage.hasBottomMore, message.list, virtualMessage.list.length, virtualMessage.size, virtualMessage.startIndex, virtualMessage.endIndex);
@@ -548,7 +628,7 @@ const chatBodyScroll = () => {
 
                     virtualDom!.scrollIntoView({ block: 'end' });
 
-                    console.log("virtualMessage.list2:", virtualMessage.list);
+                    // console.log("virtualMessage.list2:", virtualMessage.list);
 
                 }
                 // }, 50)
@@ -584,8 +664,16 @@ const chatBodyScroll = () => {
                          * 需要将这些已经更新了的id过滤出来，最后将过滤出来的id发送给服务器，
                          * 服务器操作数据库将这些id更新为已读状态
                         */
-                        let finalyNotreadIds = virtualMessage.list.filter((item: any, index: number) => { return item.isRead == 0 && item._id == idsArray[index] }).map((item: any) => { return item._id });
+                        let finalyNotreadIds = virtualMessage.list.filter((item: any, index: number) => {
+
+                            return item.isRead == 0 && item._id == idsArray[index];
+                        }).map((item: any) => {
+                            return item._id;
+                        });
                         // console.log('停止滚动了,全部被用户已读的id', idsArray);
+                        finalyNotreadIds = finalyNotreadIds.filter((item: any) => {
+                            return item != undefined;
+                        })
                         // console.log('停止滚动了,全部被用户已读的id中数据库还没更新的id', finalyNotreadIds);
 
                         /**
@@ -593,10 +681,31 @@ const chatBodyScroll = () => {
                          * 
                         */
                         let notifyIndex = roomView.index;
+
                         if (finalyNotreadIds.length >= 1 && state.notifyList.frends[notifyIndex].notify.isRead == 0) {
-                            let datas: any = await updateMessageByIds(finalyNotreadIds);
-                            await getNotifyList();
-                            console.log('按id更新状态', datas);
+                            let datas: any = await updateMessageByIds(finalyNotreadIds, roomView.isOne2One);
+                            // console.log('按id更新状态', datas);
+                            if (datas.status == 200) {
+                                // await getNotifyList();
+                                // console.log('roomView.isOne2One:', roomView.isOne2One);
+                                // console.log('roomView.receiverInfo._id:', roomView.receiverInfo._id);
+                                // console.log('roomView.groupId:', roomView.groupId);
+
+                                // let id = roomView.isOne2One ? roomView.receiverInfo._id : roomView.groupId;
+                                // console.log('id:', roomView.receiverInfo._id, roomView.groupId);
+
+                                await myGetHistory(roomView.receiverInfo._id);
+                                // //初始化最终渲染的聊天记录，返回初始化后的要显示的聊天记录和下标
+                                const { _virtualMessage, _startIndex, _endIndex } = initViretualMesssage(message.list, 20)
+                                virtualMessage.list = _virtualMessage;
+                                virtualMessage.startIndex = _startIndex;
+                                virtualMessage.endIndex = _endIndex;
+
+                                await getNotifyList();
+                            }
+
+
+
                         }
                     }, 10);
                 }
@@ -727,7 +836,7 @@ const onCreate = async () => {
     //把自己装进去,第一个是群主
     members.unshift(userStore.userInfo._id);
 
-    console.log("members", members);
+    // console.log("members", members);
 
 
     try {
@@ -757,14 +866,12 @@ const onCreate = async () => {
 watch(
     () => virtualMessage.list,
     (value, oldValue) => {
-        // let isLeave = roomView.receiverInfo ? 1 : 0;
-        // if (isLeave) {
-
-        //     if (roomView.receiverInfo.isOne2One != 0) {
-
-        //         socket.emit('leave room', groupView.groupId);
-        //     }
-        // }
+        let isLeave = roomView.receiverInfo ? 1 : 0;
+        if (isLeave) {
+            if (roomView.receiverInfo.isOne2One != 0) {
+                socket.emit('leave room', groupView.groupId);
+            }
+        }
     },
     { immediate: true }
 )
@@ -793,11 +900,12 @@ onMounted(() => {
                     <p class="text-md font-bold hidden md:block group-hover:block">IOconec</p>
               <!-- 新建群组按钮 -->
                     <label @click="onOpeanModal" htmlFor="my-modal-3"   class="block rounded-full hover:bg-gray-700 bg-gray-800 w-10 h-10 p-2 hidden md:block group-hover:block">
-            
-                        <svg viewBox="0 0 24 24" class="w-full h-full fill-current">
-                            <path
-                                    d="M6.3 12.3l10-10a1 1 0 0 1 1.4 0l4 4a1 1 0 0 1 0 1.4l-10 10a1 1 0 0 1-.7.3H7a1 1 0 0 1-1-1v-4a1 1 0 0 1 .3-.7zM8 16h2.59l9-9L17 4.41l-9 9V16zm10-2a1 1 0 0 1 2 0v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6c0-1.1.9-2 2-2h6a1 1 0 0 1 0 2H4v14h14v-6z"/>
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6">
+                            <path d="M4.913 2.658c2.075-.27 4.19-.408 6.337-.408 2.147 0 4.262.139 6.337.408 1.922.25 3.291 1.861 3.405 3.727a4.403 4.403 0 00-1.032-.211 50.89 50.89 0 00-8.42 0c-2.358.196-4.04 2.19-4.04 4.434v4.286a4.47 4.47 0 002.433 3.984L7.28 21.53A.75.75 0 016 21v-4.03a48.527 48.527 0 01-1.087-.128C2.905 16.58 1.5 14.833 1.5 12.862V6.638c0-1.97 1.405-3.718 3.413-3.979z" />
+                            <path d="M15.75 7.5c-1.376 0-2.739.057-4.086.169C10.124 7.797 9 9.103 9 10.609v4.285c0 1.507 1.128 2.814 2.67 2.94 1.243.102 2.5.157 3.768.165l2.782 2.781a.75.75 0 001.28-.53v-2.39l.33-.026c1.542-.125 2.67-1.433 2.67-2.94v-4.286c0-1.505-1.125-2.811-2.664-2.94A49.392 49.392 0 0015.75 7.5z" />
                         </svg>
+
+                       
                     </label>
                <!-- 新建群组按钮 -->
                 </div>
@@ -839,6 +947,7 @@ onMounted(() => {
                         <div className="bg-neutral-focus text-neutral-content rounded-full w-16">
                             <span className="text-3xl">{{ item.name[0] }}</span>
                         </div>
+                      
                    </div> 
                    <!-- 群聊头像 -->
                 
@@ -852,7 +961,7 @@ onMounted(() => {
                                 <p class="ml-2 whitespace-no-wrap">{{ notifyFormatter(item.notify.updateAt ? item.notify.updateAt : item.createTime) }}</p>
                             </div>
                         </div>
-                        <div v-if="userStore.userInfo._id != item.notify.sender && item.notify.isRead == 0" class="bg-blue-700 w-6 h-6 rounded-full inline-flex text-center items-center justify-center flex-shrink-0 hidden md:block group-hover:block">{{ item.notify.notreadCount }}</div>
+                        <div v-if="userStore.userInfo._id != item.notify.sender && item.notify.notreadCount" class="bg-blue-700 w-6 h-6 rounded-full inline-flex text-center items-center justify-center flex-shrink-0 hidden md:block group-hover:block">{{ item.notify.notreadCount }}</div>
                     </div>
                 <!-- 用户名、最新收到的信息、时间 -->
                     
@@ -936,25 +1045,34 @@ onMounted(() => {
                     <template v-for="item, index in virtualMessage.list" :key="index">
                         
                      
-                        <div :class="userStore.userInfo._id == item.receiver ? 'flex flex-row justify-start mt-1' : 'flex justify-start flex-row-reverse mt-3'">
+                        <div :class="userStore.userInfo._id != item.sender ? 'flex flex-row justify-start mt-1' : 'flex justify-start flex-row-reverse mt-3'">
                             <!-- 头像 -->
                             <div  class="flex items-center justify-center h-10 w-10 rounded-full  flex-shrink-0 mr-4 ml-2">
                                 <img class="shadow-md rounded-full w-full h-full object-cover"
-                                            :src="userStore.userInfo._id == item.receiver ? roomView.receiverInfo.avatar : userStore.userInfo.avatar"
+                                            :src="userStore.userInfo._id != item.sender ? item.userInfo ? item.userInfo.avatar : roomView.receiverInfo.avatar : userStore.userInfo.avatar"
                                             alt="" />
+                                            
                             </div>
+                            
+                        
                             <!-- 头像 -->
 
                         <!-- 信息内容 -->
                             <div class="messages text-sm text-white grid grid-flow-row gap-2" :id="item._id">
                                 <!-- 文本信息 -->
-                                <div :class="userStore.userInfo._id == item.receiver && item.contentType == 1 ? 'flex items-center group' : 'flex items-center flex-row-reverse group'">
-                                    <p :class="userStore.userInfo._id == item.receiver && item.contentType == 1 ? 'px-6 py-3 rounded-t-full rounded-r-full bg-gray-800 max-w-xs lg:max-w-md' : 'px-6 py-3 rounded-t-full rounded-l-full bg-blue-700 max-w-xs lg:max-w-md'">{{ item.content }}</p>
+                                <div :class="userStore.userInfo._id != item.sender && item.contentType == 1 ? 'flex items-center group' : 'flex items-center flex-row-reverse group'">
+                                    <!-- 用户名和时间 -->
+                                    
+                                    <p :class="userStore.userInfo._id != item.sender && item.contentType == 1 ? 'px-4 py-2 rounded-t-full rounded-r-full bg-gray-800 max-w-xs lg:max-w-md' : 'px-4 py-2 rounded-t-full rounded-l-full bg-blue-700 max-w-xs lg:max-w-md'">
+                                        <span :class="userStore.userInfo._id != item.sender && item.contentType == 1 ? 'text-sm text-slate-500' : 'text-sm text-stone-400'">{{ item.userInfo ? item.userInfo.username : roomView.receiverInfo.username }}</span>
+                                        <br /> <!-- 添加换行符，使 content 在下一行显示 -->
+                                        {{ item.content }}
+                                    </p>
                                 </div>
 
                                 <!-- 翻译文本 有动效-->
-                                <div v-if="(userStore.userInfo._id == item.receiver && item.contentType == 1)" class="flex items-center group mb-4 -mt-1">
-                                    <p class="px-6 py-3 rounded-b-full rounded-r-full bg-gray-800 max-w-xs lg:max-w-md text-gray-200"><TypingText :text="item.translatedContent"></TypingText></p>
+                                <div v-if="(userStore.userInfo._id != item.sender && item.contentType == 1)" class="flex items-center group mb-4 -mt-1">
+                                    <p class="px-4 py-2 rounded-b-full rounded-r-full bg-gray-800 max-w-xs lg:max-w-md text-gray-200"><TypingText :text="item.translatedContent"></TypingText></p>
                                 </div>
                                 <!-- 翻译文本 有动效-->
 
@@ -967,7 +1085,7 @@ onMounted(() => {
                                 <!-- 文本信息 -->
 
                                 <!-- 图片信息 -->
-                            <div v-if="(userStore.userInfo._id == item.receiver && item.contentType == 2)" calss="flex items-center group">
+                            <div v-if="(userStore.userInfo._id != item.sender && item.contentType == 2)" calss="flex items-center group">
                                         <a class="block w-64 h-64 relative flex flex-shrink-0 max-w-xs lg:max-w-md" href="#">
                                             <img class="absolute shadow-md w-full h-full rounded-r-lg object-cover" :src="roomView.receiverInfo.avatar" alt="hiking"/>
                                         </a>
@@ -1051,7 +1169,7 @@ onMounted(() => {
                  <div className="hero-content flex-col lg:flex-row-reverse">
                     <div className="text-center lg:text-center">
                         
-                   <TypingText text="Hello Madafruka "></TypingText>
+                   <TypingText text="Hello MothaFucka " ></TypingText>
                     </div>
                 </div>
             </section>
@@ -1061,7 +1179,7 @@ onMounted(() => {
     <!-- 新建群组的modal -->
     <input v-if="addMembers.isShowModal" type="checkbox" id="my-modal-3" className="modal-toggle" />
     <div className="modal">
-        <div className="modal-box relative">
+        <div className="modal-box relative bg-gray-800 border-gray-800 focus:border-gray-700">
             <label @click="oncloseCreateGroup" htmlFor="my-modal-3" className="btn btn-sm btn-circle absolute right-2 top-2">✕</label>
             <h3 className="text-lg font-bold">New Group</h3>
 

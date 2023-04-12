@@ -20,3 +20,5 @@ module.exports.baseURL = "http://www.your server address.com";
 module.exports.openAIKeys = "your apiKey";
 module.exports.JWT_SECRET = "whatever you want";
 ```
+
+

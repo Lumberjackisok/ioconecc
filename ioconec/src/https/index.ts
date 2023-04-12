@@ -126,8 +126,8 @@ export const updateMessageStatus = (receiver: string) => {
  * post
  * ids:string[]
 */
-export const updateMessageByIds = (ids: string[]) => {
-  return instance.post('/updateMessageByIds', { ids },
+export const updateMessageByIds = (ids: string[], isOne2One: number = 1) => {
+  return instance.post('/updateMessageByIds', { ids, isOne2One },
     {
       headers: {
         "Content-Type": "application/json;charset=UTF-8"
