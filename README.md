@@ -20,5 +20,30 @@ module.exports.baseURL = "http://www.your server address.com";
 module.exports.openAIKeys = "your apiKey";
 module.exports.JWT_SECRET = "whatever you want";
 ```
+-----------------------------------------RUN------------------------------------------
+FRONTEND:
+```sh
+npm install
+```
 
+### Compile and Hot-Reload for Development
 
+```sh
+npm run dev
+```
+
+### Type-Check, Compile and Minify for Production
+
+```sh
+npm run build
+```
+-----------------------------------------RUN------------------------------------------
+
+BACKEND:
+```sh
+npm install
+```
+
+```sh
+nodemon server.js
+```

@@ -1,7 +1,7 @@
 "# ioconec" 
 
 
-FONTEND:
+FRONTEND:
 ```sh
 npm install
 ```
