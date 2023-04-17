@@ -43,7 +43,7 @@ socket.on('disconnect', () => {
 });
 
 socket.on('message', async (data: any) => {
-    console.log('服务器监听到message,转发过来的数据:', data.data[0], userStore.userInfo._id);
+    console.log('服务器监听到message,转发过来的数据:', data.data[0], roomView.receiverInfo);
     try {
         if (data.message === 'go get update' && data.data[0].receiver == userStore.userInfo._id && roomView.close == 0) {
             /**处理单聊
@@ -53,9 +53,9 @@ socket.on('message', async (data: any) => {
              * 或者receiver==userStore.userInfo._id
             */
             //收到消息后，当页面本身就是触底的时，才再次触发触底
-            console.log('单聊消息来了', data.data[0].group, roomView.receiverInfo._id);
+            // console.log('单聊消息来了', data.data[0], roomView.receiverInfo._id);
 
-            if (chatBody.value.scrollTop + chatBody.value.clientHeight >= chatBody.value.scrollHeight - 15 && roomView.isOne2One) {
+            if (chatBody.value.scrollTop + chatBody.value.clientHeight >= chatBody.value.scrollHeight - 15 && roomView.isOne2One && roomView.receiverInfo._id == data.data[0].sender) {
                 //push进去，实现触底效果
                 message.list.push(data.data[0]);
                 virtualMessage.list.push(data.data[0]);
@@ -72,7 +72,7 @@ socket.on('message', async (data: any) => {
         } else if (roomView.isOne2One != 1) {
             //处理群聊
             // console.log('群聊消息来了', data.data[0].group, roomView.receiverInfo._id);
-            if (chatBody.value.scrollTop + chatBody.value.clientHeight >= chatBody.value.scrollHeight - 15 && roomView.isOne2One != 1) {
+            if (chatBody.value.scrollTop + chatBody.value.clientHeight >= chatBody.value.scrollHeight - 15 && roomView.isOne2One != 1 && roomView.receiverInfo._id == data.data[0].group) {
                 //push进去，实现触底效果
                 // message.list.push(data.data[0]);
                 // console.log('data.data[0].readStatus:', data.data[0].readStatus);
@@ -219,71 +219,75 @@ const goChat = async (receiverInfo: any, isNewChat: number, index: number) => {
         //处理非新创建聊天室的情况
         //判断是否为群聊，如果点开的是群聊。让当前客户端加入聊天室
         if (receiverInfo.isOne2One == 0) {
-            console.log('是群聊');
-            roomView.isOne2One = 0;
+            try {
+                console.log('是群聊');
+                roomView.isOne2One = 0;
 
+                //更新群组id，更新之前需要离开上一次的
+                let groupId = groupView.groupId
+                socket.emit('leave room', groupId);
+                groupView.groupId = receiverInfo._id;
+                //更新后的群组id加入聊天室
+                socket.emit('join room', receiverInfo._id);
 
-            //更新群组id，更新之前需要离开上一次的
-            let groupId = groupView.groupId
-            socket.emit('leave room', groupId);
-            groupView.groupId = receiverInfo._id;
-            //更新后的群组id加入聊天室
-            socket.emit('join room', receiverInfo._id);
+                //清空聊天室消息， 清空后再重新获取聊天记录
+                message.list = [];
+                virtualMessage.list = [];
 
-            //清空聊天室消息， 清空后再重新获取聊天记录
-            message.list = [];
-            virtualMessage.list = [];
+                await myGetHistory(groupView.groupId);//获取聊天历史
 
-            await myGetHistory(groupView.groupId);//获取聊天历史
+                //初始化最终渲染的聊天记录，返回初始化后的要显示的聊天记录和下标
+                const { _virtualMessage, _startIndex, _endIndex } = initViretualMesssage(message.list, 20)
+                virtualMessage.list = _virtualMessage;
+                virtualMessage.startIndex = _startIndex;
+                virtualMessage.endIndex = _endIndex;
 
-            //初始化最终渲染的聊天记录，返回初始化后的要显示的聊天记录和下标
-            const { _virtualMessage, _startIndex, _endIndex } = initViretualMesssage(message.list, 20)
-            virtualMessage.list = _virtualMessage;
-            virtualMessage.startIndex = _startIndex;
-            virtualMessage.endIndex = _endIndex;
+                //获取未读消息
+                //获取未读消息
 
-            //获取未读消息
-            //获取未读消息
-
-            // roomView.notReadCount = notReadCount.length;
-            const notReadCount = virtualMessage.list.filter((item: any) => {
-                return item.isRead == 0;
-            });
-            // roomView.notReadCount = notReadCount.length;
-            // console.log('未读消息：', notReadCount);
-
-
-            //如果最新的一条消息的发送者是自己的id就直接触底
-            if (message.list[message.list.length - 1].sender == userStore.userInfo._id) {
-                roomView.showToBottomButton = false;
-                // roomView.notReadCount = 0;
-                scrollToBottom(10);
-            } else if (notReadCount.length == 0) {
-                //如果最新的消息的接收者是自己，但notReadCount.length=0，同样直接触底
-                scrollToBottom(10);
-            } else {
-                //如果最新的消息的接收者是自己,并且notReadCount！=0，就scroll到最前面那条未读消息的位置
                 // roomView.notReadCount = notReadCount.length;
-                roomView.showToBottomButton = notReadCount.length == 0 ? false : true;
+                const notReadCount = virtualMessage.list.filter((item: any) => {
+                    return item.isRead == 0;
+                });
+                // roomView.notReadCount = notReadCount.length;
+                // console.log('未读消息：', notReadCount);
 
-                //按时间戳降序排序，再过滤掉已读的，取第一个,就是对应的消息的dom的id,
-                //因为在渲染的时候就把id动态绑定上去了，
-                //也就是说：message._id = DOM的id
-                const scrollToRead = virtualMessage.list.filter((item: any) => { return item.isRead == 0 })[0]._id;
-                // console.log("message.list.filter((item: any) => { return item.isRead == 0 }):", message.list.filter((item: any) => { return item.isRead == 0 }));
 
-                // console.log("scrollToRead:", scrollToRead);
+                //如果最新的一条消息的发送者是自己的id就直接触底
+                if (message.list[message.list.length - 1].sender == userStore.userInfo._id) {
+                    roomView.showToBottomButton = false;
+                    // roomView.notReadCount = 0;
+                    scrollToBottom(10);
+                } else if (notReadCount.length == 0) {
+                    //如果最新的消息的接收者是自己，但notReadCount.length=0，同样直接触底
+                    scrollToBottom(10);
+                } else {
+                    //如果最新的消息的接收者是自己,并且notReadCount！=0，就scroll到最前面那条未读消息的位置
+                    // roomView.notReadCount = notReadCount.length;
+                    roomView.showToBottomButton = notReadCount.length == 0 ? false : true;
 
-                //获取dom，在setTimeout内的目的是让dom加载完毕后再去获取
-                setTimeout(() => {
-                    let firstNotReadDom: any = document.getElementById(scrollToRead);
-                    // console.log('firstNotReaDdom:', firstNotReadDom);
-                    if (firstNotReadDom) {
-                        //直接使用scrollIntoView()方法
-                        firstNotReadDom.scrollIntoView();
-                    }
-                }, 10);
+                    //按时间戳降序排序，再过滤掉已读的，取第一个,就是对应的消息的dom的id,
+                    //因为在渲染的时候就把id动态绑定上去了，
+                    //也就是说：message._id = DOM的id
+                    const scrollToRead = virtualMessage.list.filter((item: any) => { return item.isRead == 0 })[0]._id;
+                    // console.log("message.list.filter((item: any) => { return item.isRead == 0 }):", message.list.filter((item: any) => { return item.isRead == 0 }));
+
+                    // console.log("scrollToRead:", scrollToRead);
+
+                    //获取dom，在setTimeout内的目的是让dom加载完毕后再去获取
+                    setTimeout(() => {
+                        let firstNotReadDom: any = document.getElementById(scrollToRead);
+                        // console.log('firstNotReaDdom:', firstNotReadDom);
+                        if (firstNotReadDom) {
+                            //直接使用scrollIntoView()方法
+                            firstNotReadDom.scrollIntoView();
+                        }
+                    }, 10);
+                }
+            } catch (e) {
+                console.log(e);
             }
+
 
         } else {
             try {
@@ -386,7 +390,7 @@ const onSend = async () => {
                 isRead: 0,//0：未读，1：已读,默认未读
                 group: roomView.receiverInfo._id
             }
-            message.list.push(sendData);
+            // message.list.push(sendData);
             virtualMessage.list.push(sendData);
             roomView.content = '';
             scrollToBottom(10);
@@ -1169,7 +1173,7 @@ onMounted(() => {
                  <div className="hero-content flex-col lg:flex-row-reverse">
                     <div className="text-center lg:text-center">
                         
-                   <TypingText text="Hello MothaFucka " ></TypingText>
+                   <TypingText text="Hello MothaFuca " ></TypingText>
                     </div>
                 </div>
             </section>

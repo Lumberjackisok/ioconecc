@@ -11,7 +11,7 @@ const { Configuration, OpenAIApi } = require("openai");
 // const openai = new OpenAIApi(configuration);
 
 //axios封装请求
-const chatGTP = async (input) => {
+const chatGTP = async(input) => {
     try {
         let data = {
             model: "gpt-3.5-turbo",
@@ -53,7 +53,7 @@ const chatGTP = async (input) => {
 };
 
 //API of openai openai的api
-module.exports.openAITranslate = async (text, language) => {
+module.exports.openAITranslate = async(text, language) => {
     const finalyText = `Please translate the following text into easy-to-understand ${language}:"${text}"`;
     console.log(finalyText);
     let datas = await chatGTP(finalyText);

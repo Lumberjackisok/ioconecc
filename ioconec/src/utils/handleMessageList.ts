@@ -7,6 +7,13 @@
  * 如果总长度大于20，返回总长度减20，
  * 否则返回0。
 */
+
+/**
+ * 补充：
+ * 初始化聊天记录切片需要考虑未读消息的条数，
+ * 如果未读消息大于40条，startIndex需要定位到第一条未读消息,
+ * 相应的，endIndex=startIndex+20。
+*/
 export const initViretualMesssage = (message: any, size: number = 20) => {
   let notReadCount: number = message.filter((item: any) => {
     return item.isRead == 0;
@@ -25,7 +32,7 @@ export const initViretualMesssage = (message: any, size: number = 20) => {
       _virtualMessage: message.slice(message.length - (message.length - notReadCount) + size),
       _startIndex: message.length - notReadCount,
       _endIndex: (message.length - notReadCount) + size
-    }
+    };
   }
 
   return {

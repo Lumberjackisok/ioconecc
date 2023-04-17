@@ -68,7 +68,7 @@ io.use(async(socket, next) => {
 
             //验证token,拿到用户id和母语
             const payload = await verifyToken(token, JWT_SECRET);
-            //把uid保存到socket里面，方便用return !!io.sockets.connected[userId]判断在线用户
+            //把uid也保存到socket里面
             socket.uid = payload.uid;
             socket.language = payload.language;
 
