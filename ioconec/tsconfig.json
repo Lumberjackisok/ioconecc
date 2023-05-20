@@ -6,6 +6,10 @@
     "src/**/*.vue"
   ],
   "compilerOptions": {
+    "ignoreDeprecations": "5.0",
+    "types": [
+      "node"
+    ],
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "baseUrl": ".",

@@ -22,7 +22,7 @@
   },
   "devDependencies": {
     "@types/axios": "^0.14.0",
-    "@types/node": "^18.11.12",
+    "@types/node": "^18.16.13",
     "@types/nprogress": "^0.2.0",
     "@vitejs/plugin-vue": "^4.0.0",
     "@vitejs/plugin-vue-jsx": "^3.0.0",

@@ -1173,7 +1173,7 @@ onMounted(() => {
                  <div className="hero-content flex-col lg:flex-row-reverse">
                     <div className="text-center lg:text-center">
                         
-                   <TypingText text="Hello MothaFuca " ></TypingText>
+                   <TypingText text="Hello MothaFuka " ></TypingText>
                     </div>
                 </div>
             </section>

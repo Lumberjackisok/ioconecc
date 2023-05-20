@@ -1,8 +1,8 @@
-const { openAIKeys } = require('../privateKeys/index');
+// const { openAIKeys } = require('../privateKeys/index');
 const axios = require('axios');
+const openAIKeys = process.env.openAIKeys;
 
-
-const { Configuration, OpenAIApi } = require("openai");
+// const { Configuration, OpenAIApi } = require("openai");
 
 // const configuration = new Configuration({
 //     apiKey: openAIKeys //apiKey的K是大写
@@ -11,7 +11,7 @@ const { Configuration, OpenAIApi } = require("openai");
 // const openai = new OpenAIApi(configuration);
 
 //axios封装请求
-const chatGTP = async(input) => {
+const chatGTP = async (input) => {
     try {
         let data = {
             model: "gpt-3.5-turbo",
@@ -29,11 +29,12 @@ const chatGTP = async(input) => {
                 'Authorization': `Bearer ${openAIKeys}`
             },
             data: data,
-            proxy: {
-                host: "127.0.0.1",
-                port: 7890,
-                protocol: "http"
-            },
+            //本地测试环境如果使用WARP直连，则不需要配置proxy
+            // proxy: {
+            //     host: "127.0.0.1",
+            //     port: 7890,
+            //     protocol: "http"
+            // },
             // timeout: 5000
         };
         let completion = await axios(config)
@@ -53,7 +54,7 @@ const chatGTP = async(input) => {
 };
 
 //API of openai openai的api
-module.exports.openAITranslate = async(text, language) => {
+module.exports.openAITranslate = async (text, language) => {
     const finalyText = `Please translate the following text into easy-to-understand ${language}:"${text}"`;
     console.log(finalyText);
     let datas = await chatGTP(finalyText);
