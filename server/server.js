@@ -1,5 +1,7 @@
 const app = require("./app");
-const { port, JWT_SECRET } = require('./config');
+// const { port, JWT_SECRET } = require('./config');
+const JWT_SECRET = process.env.JWT_SECRET;
+const port = process.env.port;
 const { verifyToken } = require('./utils/token');
 const { openAITranslate } = require('./utils/translateApis');
 const User = require('./models/user');
@@ -61,7 +63,7 @@ const io = require('socket.io')(httpServer, {
 });
 
 //接收客户端的连接，并获取传过来的token
-io.use(async(socket, next) => {
+io.use(async (socket, next) => {
     try {
         if (socket.handshake.query.token) {
             const token = JSON.parse(socket.handshake.query.token)['token'];
@@ -85,7 +87,7 @@ io.use(async(socket, next) => {
 });
 
 //连接到客户端的socket，并监听自定义事件
-io.on('connection', async(socket) => {
+io.on('connection', async (socket) => {
     // console.log('连接到客户端的socket');
     // console.log('socket.Id:', socket.id);
     // try {
@@ -102,7 +104,7 @@ io.on('connection', async(socket) => {
     // }
 
     //监听客户端的disconnect事件，断开连接后更新数据库的isOnline状态为0,socketId为空字符串
-    socket.on('disconnect', async() => {
+    socket.on('disconnect', async () => {
         await User.updateOne({ _id: socket.uid }, {
             $set: {
                 isOnline: 0,
@@ -122,7 +124,7 @@ io.on('connection', async(socket) => {
     });
 
     //监听客户端的message发消息事件
-    socket.on('message', async(val, fn) => {
+    socket.on('message', async (val, fn) => {
         console.log('message数据:', val.sendData);
 
         const { sendData } = val;
@@ -162,16 +164,16 @@ io.on('connection', async(socket) => {
 
                     // 发送成功后再查找数据库把最新的聊天记录返回过去
                     const sendmessage = [{
-                            sender: sendData.sender,
-                            receiver: sendData.receiver,
-                            contentType: sendData.contentType,
-                            content: sendData.content,
-                            translatedContent: translatedContent,
-                            group: sendData.groupId,
-                            isRead: 0,
-                            updateAt: new Date()
-                        }]
-                        //把写入的聊天记录和发送者id返回过去,方便客户端更新状态
+                        sender: sendData.sender,
+                        receiver: sendData.receiver,
+                        contentType: sendData.contentType,
+                        content: sendData.content,
+                        translatedContent: translatedContent,
+                        group: sendData.groupId,
+                        isRead: 0,
+                        updateAt: new Date()
+                    }]
+                    //把写入的聊天记录和发送者id返回过去,方便客户端更新状态
                     fn(sendmessage);
 
                     //如果对方在线就直接发送过去
@@ -232,13 +234,13 @@ io.on('connection', async(socket) => {
 
                 //先处理好readStatus字段
                 const readStatus = sendData.members.map((item) => {
-                        return {
-                            member: item,
-                            isRead: 0
-                        }
-                    })
-                    // console.log("readStatus:", readStatus);
-                    //row message，每条消息都有一条没翻译过消息
+                    return {
+                        member: item,
+                        isRead: 0
+                    }
+                })
+                // console.log("readStatus:", readStatus);
+                //row message，每条消息都有一条没翻译过消息
                 const rowMessage = new Message({
                     sender: sendData.sender,
                     receiver: sendData.receiver,
@@ -252,7 +254,7 @@ io.on('connection', async(socket) => {
                 await rowMessage.save();
 
                 //拿到members的个人信息
-                const users = await Promise.all(sendData.members.map(async(item) => {
+                const users = await Promise.all(sendData.members.map(async (item) => {
                     const user = await User.findById({ _id: item }).select('-password');
                     return user;
                 }));
