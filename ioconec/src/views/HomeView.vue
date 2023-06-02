@@ -16,6 +16,7 @@ import { initViretualMesssage, sliceMessage } from '../utils/handleMessageList';
 import TypingText from '@/components/TypingText.vue';
 import loding from '../components/Loading.vue';
 
+
 //实例化userStore
 const userStore: any = useUserStore();
 
@@ -57,7 +58,7 @@ socket.on('message', async (data: any) => {
 
             if (chatBody.value.scrollTop + chatBody.value.clientHeight >= chatBody.value.scrollHeight - 15 && roomView.isOne2One && roomView.receiverInfo._id == data.data[0].sender) {
                 //push进去，实现触底效果
-                message.list.push(data.data[0]);
+                // message.list.push(data.data[0]);
                 virtualMessage.list.push(data.data[0]);
                 // virtualMessage.list = message.list.slice(message.list.length - 20, message.list.length);
                 scrollToBottom(10);
@@ -412,7 +413,7 @@ const onSend = async () => {
                 groupId: roomView.groupId,
             };
 
-            message.list.push(sendData);
+            // message.list.push(sendData);
             virtualMessage.list.push(sendData);
             // virtualMessage.list = message.list.slice(message.list.length - 20, message.list.length);
             roomView.content = '';
@@ -1054,11 +1055,8 @@ onMounted(() => {
                             <div  class="flex items-center justify-center h-10 w-10 rounded-full  flex-shrink-0 mr-4 ml-2">
                                 <img class="shadow-md rounded-full w-full h-full object-cover"
                                             :src="userStore.userInfo._id != item.sender ? item.userInfo ? item.userInfo.avatar : roomView.receiverInfo.avatar : userStore.userInfo.avatar"
-                                            alt="" />
-                                            
+                                            alt="" />          
                             </div>
-                            
-                        
                             <!-- 头像 -->
 
                         <!-- 信息内容 -->
@@ -1068,9 +1066,10 @@ onMounted(() => {
                                     <!-- 用户名和时间 -->
                                     
                                     <p :class="userStore.userInfo._id != item.sender && item.contentType == 1 ? 'px-4 py-2 rounded-t-full rounded-r-full bg-gray-800 max-w-xs lg:max-w-md' : 'px-4 py-2 rounded-t-full rounded-l-full bg-blue-700 max-w-xs lg:max-w-md'">
-                                        <span :class="userStore.userInfo._id != item.sender && item.contentType == 1 ? 'text-sm text-slate-500' : 'text-sm text-stone-400'">{{ item.userInfo ? item.userInfo.username : roomView.receiverInfo.username }}</span>
+                                        <span :class="userStore.userInfo._id != item.sender && item.contentType == 1 ? 'text-sm text-slate-500' : 'text-sm text-stone-400'">{{ roomView.isOne2One ? userStore.userInfo._id != item.sender && item.contentType == 1 ? roomView.receiverInfo.username : userStore.userInfo.username : item.userInfo.username }}</span>
                                         <br /> <!-- 添加换行符，使 content 在下一行显示 -->
                                         {{ item.content }}
+                                        <!-- item.userInfo ? item.userInfo.username : roomView.receiverInfo.username -->
                                     </p>
                                 </div>
 

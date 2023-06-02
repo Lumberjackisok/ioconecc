@@ -1,6 +1,6 @@
-// const { openAIKeys } = require('../privateKeys/index');
+const { openAIKeys } = require('../privateKeys/index');
 const axios = require('axios');
-const openAIKeys = process.env.openAIKeys;
+// const openAIKeys = process.env.openAIKeys;
 
 // const { Configuration, OpenAIApi } = require("openai");
 
@@ -23,7 +23,7 @@ const chatGTP = async (input) => {
         let config = {
             method: 'post',
             maxBodyLength: Infinity,
-            url: 'https://api.openai.com/v1/chat/completions',
+            url: 'https://api.chatanywhere.cn/v1/chat/completions',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${openAIKeys}`

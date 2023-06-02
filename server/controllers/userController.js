@@ -10,7 +10,7 @@ const {
 
 
 //登录login
-module.exports.login = async(req, res, next) => {
+module.exports.login = async (req, res, next) => {
 
     const { email, password } = req.body;
     // console.log('email:', email); //可以正常打印
@@ -72,7 +72,7 @@ module.exports.login = async(req, res, next) => {
 };
 
 //注册register
-module.exports.register = async(req, res, next) => {
+module.exports.register = async (req, res, next) => {
     const { email, username, password, language } = req.body;
 
 
@@ -158,7 +158,7 @@ module.exports.register = async(req, res, next) => {
 // };
 
 //查找
-module.exports.search = async(req, res, next) => {
+module.exports.search = async (req, res, next) => {
     const { username, page, limit } = req.query;
 
     //$regex: username模糊查询，$options: 'i'不区分大小写
@@ -179,11 +179,11 @@ module.exports.search = async(req, res, next) => {
 };
 
 
-module.exports.test = async(req, res, next) => {
+module.exports.test = async (req, res, next) => {
 
     return res.json({
         message: "hello",
-        datas: uid,
+
         status: 20000
     })
 }

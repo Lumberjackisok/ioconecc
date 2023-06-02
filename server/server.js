@@ -1,7 +1,7 @@
 const app = require("./app");
-// const { port, JWT_SECRET } = require('./config');
-const JWT_SECRET = process.env.JWT_SECRET;
-const port = process.env.port;
+const { port, JWT_SECRET } = require('./privateKeys/index');
+// const JWT_SECRET = process.env.JWT_SECRET;
+// const port = process.env.PORT;
 const { verifyToken } = require('./utils/token');
 const { openAITranslate } = require('./utils/translateApis');
 const User = require('./models/user');

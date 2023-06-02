@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken');
-// const { JWT_SECRET } = require('../privateKeys/index');
-const JWT_SECRET = process.env.JWT_SECRET;
+const { JWT_SECRET } = require('../privateKeys/index');
+// const JWT_SECRET = process.env.JWT_SECRET;
 
 
 /**
